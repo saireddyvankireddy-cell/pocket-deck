@@ -2,6 +2,7 @@ const DB_NAME = "pocket-deck";
 const DB_VERSION = 1;
 const STORE_NAME = "tracks";
 const PLAYLISTS_STORAGE_KEY = "pocket-deck-playlists-v1";
+const AUDIO_EXTENSIONS = new Set(["aac", "flac", "m4a", "mp3", "oga", "ogg", "opus", "wav", "webm"]);
 
 const elements = {
   activeFilterLabel: document.querySelector("#activeFilterLabel"),
@@ -15,7 +16,9 @@ const elements = {
   favoriteCurrentButton: document.querySelector("#favoriteCurrentButton"),
   favoritesFilterButton: document.querySelector("#favoritesFilterButton"),
   fileInput: document.querySelector("#fileInput"),
+  folderInput: document.querySelector("#folderInput"),
   heroCoverText: document.querySelector("#heroCoverText"),
+  importStatus: document.querySelector("#importStatus"),
   installButton: document.querySelector("#installButton"),
   miniMeta: document.querySelector("#miniMeta"),
   miniTitle: document.querySelector("#miniTitle"),
@@ -84,6 +87,7 @@ function init() {
 
 function bindEvents() {
   elements.fileInput.addEventListener("change", handleImport);
+  elements.folderInput.addEventListener("change", handleImport);
   elements.searchInput.addEventListener("input", renderTracks);
   elements.sortSelect.addEventListener("change", renderTracks);
   elements.allFilterButton.addEventListener("click", () => setFilter("all"));
@@ -177,31 +181,54 @@ function setFilter(mode) {
 }
 
 async function handleImport(event) {
-  const files = [...event.target.files].filter(file => file.type.startsWith("audio/"));
-  if (!files.length) return;
+  const selectedFiles = [...event.target.files];
+  const files = selectedFiles.filter(isSupportedAudioFile);
+  const skippedUnsupported = selectedFiles.length - files.length;
+
+  if (!files.length) {
+    updateImportStatus(selectedFiles.length ? "No supported audio files found." : "");
+    event.target.value = "";
+    return;
+  }
 
   const existingKeys = new Set(state.tracks.map(track => `${track.fileName}-${track.size}`));
   const imported = [];
+  let skippedDuplicates = 0;
+  let failed = 0;
+
+  updateImportStatus(`Importing ${files.length} songs...`);
 
   for (const file of files) {
-    const key = `${file.name}-${file.size}`;
-    if (existingKeys.has(key)) continue;
+    const fileName = getImportFileName(file);
+    const key = `${fileName}-${file.size}`;
+    if (existingKeys.has(key)) {
+      skippedDuplicates += 1;
+      continue;
+    }
     const track = {
       id: crypto.randomUUID(),
       name: cleanTitle(file.name),
-      fileName: file.name,
+      fileName,
       type: file.type || "audio/mpeg",
       size: file.size,
       addedAt: Date.now(),
       favorite: false,
       blob: file
     };
-    await putTrack(track);
-    imported.push(track);
+    try {
+      await putTrack(track);
+      existingKeys.add(key);
+      imported.push(track);
+    } catch {
+      failed += 1;
+    }
   }
 
   event.target.value = "";
-  if (!imported.length) return;
+  if (!imported.length) {
+    updateImportStatus(getImportSummary(0, skippedDuplicates, skippedUnsupported, failed));
+    return;
+  }
 
   state.tracks = (await readAllTracks()).map(normalizeTrack);
   renderTracks();
@@ -209,6 +236,35 @@ async function handleImport(event) {
   if (!state.currentId) {
     selectTrack(imported[0].id, false);
   }
+
+  updateImportStatus(getImportSummary(imported.length, skippedDuplicates, skippedUnsupported, failed));
+}
+
+function isSupportedAudioFile(file) {
+  if (file.type.startsWith("audio/")) return true;
+  return AUDIO_EXTENSIONS.has(getFileExtension(file.name));
+}
+
+function getFileExtension(fileName) {
+  const parts = fileName.toLowerCase().split(".");
+  return parts.length > 1 ? parts.pop() : "";
+}
+
+function getImportFileName(file) {
+  return file.webkitRelativePath || file.name;
+}
+
+function getImportSummary(imported, duplicates, unsupported, failed) {
+  const details = [];
+  if (duplicates) details.push(`${duplicates} duplicate`);
+  if (unsupported) details.push(`${unsupported} unsupported`);
+  if (failed) details.push(`${failed} failed`);
+  const suffix = details.length ? ` · skipped ${details.join(", ")}` : "";
+  return `Imported ${imported} song${imported === 1 ? "" : "s"}${suffix}`;
+}
+
+function updateImportStatus(message) {
+  elements.importStatus.textContent = message;
 }
 
 function renderTracks() {

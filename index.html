@@ -20,8 +20,11 @@
 
         <section class="import-card" aria-label="Import music">
           <label class="primary-button" for="fileInput">Import Audio</label>
-          <input id="fileInput" type="file" accept="audio/*" multiple>
+          <label class="secondary-button" for="folderInput">Import Folder</label>
+          <input id="fileInput" type="file" accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg,.oga,.opus,.flac,.webm" multiple>
+          <input id="folderInput" type="file" accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg,.oga,.opus,.flac,.webm" multiple webkitdirectory>
           <p>Tracks are saved in this browser and stay offline-ready.</p>
+          <span id="importStatus" class="import-status" aria-live="polite"></span>
         </section>
 
         <nav class="filter-nav" aria-label="Library filters">

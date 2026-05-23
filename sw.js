@@ -1,4 +1,4 @@
-const CACHE_NAME = "pocket-deck-v8";
+const CACHE_NAME = "pocket-deck-v9";
 const ASSETS = [
   "./",
   "./index.html",
