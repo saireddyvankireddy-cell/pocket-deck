@@ -136,7 +136,7 @@ h3 {
 }
 
 .app-tabs {
-  display: grid;
+  display: none;
   grid-template-columns: 1fr 1fr;
   gap: 0.5rem;
 }
@@ -891,11 +891,11 @@ h3 {
   pointer-events: none;
 }
 
-body.photos-active {
+body:not(.music-active) {
   padding-bottom: 5.8rem;
 }
 
-body.photos-active .player-bar {
+body:not(.music-active) .player-bar {
   display: none;
 }
 
@@ -1152,7 +1152,7 @@ input[type="range"] {
     bottom: 0.65rem;
   }
 
-  body.photos-active {
+  body:not(.music-active) {
     padding-bottom: 5.4rem;
   }
 

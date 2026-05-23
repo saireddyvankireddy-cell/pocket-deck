@@ -152,6 +152,7 @@ function init() {
   loadPlaylists();
   registerServiceWorker();
   bindEvents();
+  setActiveView(state.activeView);
   elements.audio.volume = Number(elements.volume.value);
   elements.audio.playbackRate = Number(elements.speedSelect.value);
   state.sleepTimerSelection = elements.sleepSelect.value;
@@ -279,12 +280,13 @@ function setActiveView(view) {
   elements.bottomPhotosTabButton.classList.toggle("is-active", isPhotos);
   elements.bottomPlaylistsTabButton.classList.toggle("is-active", isPlaylists);
   elements.bottomSettingsTabButton.classList.toggle("is-active", isSettings);
-  elements.musicSidebarPanel.hidden = !isMusic && !isPlaylists;
+  elements.musicSidebarPanel.hidden = !isMusic;
   elements.photoSidebarPanel.hidden = !isPhotos;
   elements.musicPanel.hidden = !isMusic;
   elements.photoPanel.hidden = !isPhotos;
   elements.playlistPanel.hidden = !isPlaylists;
   elements.settingsPanel.hidden = !isSettings;
+  document.body.classList.toggle("music-active", isMusic);
   document.body.classList.toggle("photos-active", isPhotos);
   document.body.classList.toggle("settings-active", isSettings);
 }
