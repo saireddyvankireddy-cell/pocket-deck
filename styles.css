@@ -241,7 +241,8 @@ h3 {
 
 .header-tools input,
 .header-tools select,
-.speed-wrap select {
+.speed-wrap select,
+.sleep-wrap select {
   min-height: 2.38rem;
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -561,6 +562,24 @@ input[type="range"] {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+}
+
+.sleep-wrap {
+  display: grid;
+  gap: 0.15rem;
+  color: var(--muted);
+  font-size: 0.73rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.sleep-status {
+  min-width: 3.5rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
 }
 
 #volume {

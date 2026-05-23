@@ -28,6 +28,8 @@ const elements = {
   repeatButton: document.querySelector("#repeatButton"),
   searchInput: document.querySelector("#searchInput"),
   shuffleButton: document.querySelector("#shuffleButton"),
+  sleepSelect: document.querySelector("#sleepSelect"),
+  sleepStatus: document.querySelector("#sleepStatus"),
   sortSelect: document.querySelector("#sortSelect"),
   speedSelect: document.querySelector("#speedSelect"),
   trackCount: document.querySelector("#trackCount"),
@@ -42,6 +44,10 @@ const state = {
   filterMode: "all",
   filteredTracks: [],
   repeatMode: "off",
+  sleepTimerEndAt: null,
+  sleepTimerSelection: "0",
+  sleepTimerTickerId: null,
+  sleepTimerTimeoutId: null,
   shuffle: false,
   tracks: []
 };
@@ -58,9 +64,12 @@ function init() {
   bindEvents();
   elements.audio.volume = Number(elements.volume.value);
   elements.audio.playbackRate = Number(elements.speedSelect.value);
+  state.sleepTimerSelection = elements.sleepSelect.value;
+  window.setInterval(syncSleepTimerSelection, 500);
   updateRepeatUi();
   updateShuffleUi();
   updateMuteUi();
+  updateSleepTimerUi();
   loadTracks();
 }
 
@@ -76,6 +85,8 @@ function bindEvents() {
   elements.nextButton.addEventListener("click", playNext);
   elements.shuffleButton.addEventListener("click", toggleShuffle);
   elements.repeatButton.addEventListener("click", cycleRepeatMode);
+  elements.sleepSelect.addEventListener("change", handleSleepTimerChange);
+  elements.sleepSelect.addEventListener("input", handleSleepTimerChange);
   elements.favoriteCurrentButton.addEventListener("click", () => {
     if (state.currentId) toggleFavorite(state.currentId);
   });
@@ -468,6 +479,83 @@ function updateRepeatUi() {
   elements.repeatButton.classList.toggle("is-active", state.repeatMode !== "off");
 }
 
+function handleSleepTimerChange() {
+  state.sleepTimerSelection = elements.sleepSelect.value;
+  const minutes = Number(elements.sleepSelect.value);
+  if (!Number.isFinite(minutes) || minutes <= 0) {
+    stopSleepTimer({ resetSelect: false });
+    return;
+  }
+  startSleepTimer(minutes);
+}
+
+function startSleepTimer(minutes) {
+  stopSleepTimer({ resetSelect: false });
+  const durationMs = minutes * 60 * 1000;
+  state.sleepTimerEndAt = Date.now() + durationMs;
+  state.sleepTimerTimeoutId = window.setTimeout(() => {
+    stopSleepTimer({ keepStatus: true, resetSelect: true });
+    elements.audio.pause();
+    elements.sleepStatus.textContent = "Ended";
+  }, durationMs);
+  state.sleepTimerTickerId = window.setInterval(updateSleepTimerUi, 1000);
+  updateSleepTimerUi();
+}
+
+function stopSleepTimer(options = {}) {
+  const { keepStatus = false, resetSelect = true } = options;
+
+  if (state.sleepTimerTimeoutId) {
+    clearTimeout(state.sleepTimerTimeoutId);
+    state.sleepTimerTimeoutId = null;
+  }
+  if (state.sleepTimerTickerId) {
+    clearInterval(state.sleepTimerTickerId);
+    state.sleepTimerTickerId = null;
+  }
+  state.sleepTimerEndAt = null;
+
+  if (resetSelect) {
+    elements.sleepSelect.value = "0";
+  }
+  state.sleepTimerSelection = elements.sleepSelect.value;
+
+  if (keepStatus) {
+    window.setTimeout(() => {
+      if (!state.sleepTimerEndAt) {
+        updateSleepTimerUi();
+      }
+    }, 2200);
+    return;
+  }
+  updateSleepTimerUi();
+}
+
+function syncSleepTimerSelection() {
+  const selectedValue = elements.sleepSelect.value;
+  if (selectedValue === state.sleepTimerSelection) return;
+  state.sleepTimerSelection = selectedValue;
+  handleSleepTimerChange();
+}
+
+function updateSleepTimerUi() {
+  if (!state.sleepTimerEndAt) {
+    elements.sleepStatus.textContent = "Off";
+    elements.sleepSelect.title = "Sleep timer off";
+    return;
+  }
+
+  const remainingSeconds = Math.max(0, Math.ceil((state.sleepTimerEndAt - Date.now()) / 1000));
+  if (remainingSeconds <= 0) {
+    elements.sleepStatus.textContent = "Ending";
+    return;
+  }
+
+  const display = formatCountdown(remainingSeconds);
+  elements.sleepStatus.textContent = display;
+  elements.sleepSelect.title = `Sleep timer ${display}`;
+}
+
 function toggleMute() {
   if (elements.audio.volume === 0) {
     const restored = lastVolume > 0 ? lastVolume : 0.85;
@@ -498,6 +586,7 @@ async function clearLibrary() {
   if (state.currentUrl) URL.revokeObjectURL(state.currentUrl);
   state.currentId = null;
   state.currentUrl = null;
+  stopSleepTimer({ resetSelect: true });
   await clearTracks();
   state.tracks = [];
   state.filteredTracks = [];
@@ -577,6 +666,12 @@ function formatTime(value) {
   if (!Number.isFinite(value) || value <= 0) return "0:00";
   const minutes = Math.floor(value / 60);
   const seconds = Math.floor(value % 60).toString().padStart(2, "0");
+  return `${minutes}:${seconds}`;
+}
+
+function formatCountdown(totalSeconds) {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = Math.floor(totalSeconds % 60).toString().padStart(2, "0");
   return `${minutes}:${seconds}`;
 }
 

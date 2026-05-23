@@ -101,6 +101,17 @@
       </div>
 
       <div class="right-controls">
+        <label class="sleep-wrap" for="sleepSelect">
+          <span>Sleep</span>
+          <select id="sleepSelect" aria-label="Sleep timer">
+            <option value="0" selected>Off</option>
+            <option value="15">15m</option>
+            <option value="30">30m</option>
+            <option value="45">45m</option>
+            <option value="60">60m</option>
+          </select>
+        </label>
+        <span id="sleepStatus" class="sleep-status" aria-live="polite">Off</span>
         <label class="speed-wrap" for="speedSelect">
           <span>Speed</span>
           <select id="speedSelect" aria-label="Playback speed">
