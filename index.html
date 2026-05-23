@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f8f6f2">
+    <title>Pocket Deck</title>
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <div class="ambient-gradient" aria-hidden="true"></div>
+
+    <main class="app-shell">
+      <aside class="sidebar" aria-label="Library options">
+        <header class="brand-block">
+          <p class="eyebrow">Local-only music</p>
+          <h1>Pocket Deck</h1>
+        </header>
+
+        <section class="import-card" aria-label="Import music">
+          <label class="primary-button" for="fileInput">Import Audio</label>
+          <input id="fileInput" type="file" accept="audio/*" multiple>
+          <p>Tracks are saved in this browser and stay offline-ready.</p>
+        </section>
+
+        <nav class="filter-nav" aria-label="Library filters">
+          <button id="allFilterButton" class="filter-button is-active" type="button">Songs</button>
+          <button id="favoritesFilterButton" class="filter-button" type="button">Favorites</button>
+        </nav>
+
+        <div class="sidebar-actions">
+          <button id="installButton" class="ghost-button" type="button" hidden>Install App</button>
+          <button id="clearButton" class="ghost-button danger" type="button">Clear Library</button>
+        </div>
+
+        <p class="sidebar-note">No cloud sync, no uploads, and no streaming APIs. Playback is local to this device.</p>
+      </aside>
+
+      <section class="content-panel" aria-label="Music library">
+        <header class="content-header">
+          <div>
+            <p class="eyebrow">Library</p>
+            <h2>Your Songs</h2>
+          </div>
+          <div class="header-tools">
+            <input id="searchInput" type="search" placeholder="Search local tracks" autocomplete="off">
+            <select id="sortSelect" aria-label="Sort tracks">
+              <option value="recent">Recently Added</option>
+              <option value="title">Title</option>
+              <option value="size">File Size</option>
+            </select>
+          </div>
+        </header>
+
+        <div class="content-grid">
+          <section class="tracks-panel">
+            <div class="library-head">
+              <span id="trackCount">0 tracks</span>
+              <span id="activeFilterLabel">All songs</span>
+            </div>
+            <ul id="trackList" class="track-list" aria-label="Imported tracks"></ul>
+          </section>
+
+          <aside class="queue-panel" aria-label="Up next queue">
+            <h3>Up Next</h3>
+            <p id="queueHint">Select a track to build your queue.</p>
+            <ul id="queueList" class="queue-list"></ul>
+          </aside>
+        </div>
+      </section>
+    </main>
+
+    <footer class="player-bar" aria-label="Playback controls">
+      <div class="mini-now">
+        <div id="heroCoverText" class="cover-badge" aria-hidden="true">♪</div>
+        <div class="mini-meta">
+          <strong id="miniTitle">No track selected</strong>
+          <span id="miniMeta">Import local audio files to start listening.</span>
+        </div>
+        <button id="favoriteCurrentButton" class="icon-chip" type="button" title="Favorite current track">Favorite</button>
+      </div>
+
+      <div class="center-controls">
+        <div class="transport" role="group" aria-label="Playback transport">
+          <button id="shuffleButton" class="icon-chip" type="button" title="Shuffle off">Shuffle</button>
+          <button id="previousButton" class="icon-chip" type="button" title="Previous">‹</button>
+          <button id="playButton" class="play-pill" type="button" title="Play">
+            <span id="playIcon" aria-hidden="true">▶</span>
+            <span class="sr-only">Play or pause</span>
+          </button>
+          <button id="nextButton" class="icon-chip" type="button" title="Next">›</button>
+          <button id="repeatButton" class="icon-chip" type="button" title="Repeat off">Repeat</button>
+        </div>
+
+        <div class="progress-wrap">
+          <span id="currentTime">0:00</span>
+          <input id="progress" type="range" min="0" max="1000" value="0" aria-label="Playback progress">
+          <span id="duration">0:00</span>
+        </div>
+      </div>
+
+      <div class="right-controls">
+        <label class="speed-wrap" for="speedSelect">
+          <span>Speed</span>
+          <select id="speedSelect" aria-label="Playback speed">
+            <option value="0.75">0.75x</option>
+            <option value="1" selected>1.0x</option>
+            <option value="1.25">1.25x</option>
+            <option value="1.5">1.5x</option>
+          </select>
+        </label>
+        <button id="muteButton" class="icon-chip" type="button" title="Mute">Mute</button>
+        <input id="volume" type="range" min="0" max="1" step="0.01" value="0.85" aria-label="Volume">
+      </div>
+
+      <audio id="audio"></audio>
+    </footer>
+
+    <template id="emptyTemplate">
+      <li class="empty-state">
+        <strong>No tracks in this view.</strong>
+        <span>Import MP3, WAV, M4A, OGG, or FLAC files from this device.</span>
+      </li>
+    </template>
+
+    <script src="app.js" type="module"></script>
+  </body>
+</html>
