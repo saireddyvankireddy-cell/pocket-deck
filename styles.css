@@ -653,6 +653,11 @@ h3 {
   background: #ebe6df;
 }
 
+.photo-tile-button img.is-loading {
+  background:
+    linear-gradient(90deg, #eee8e1 0%, #f8f5f1 50%, #eee8e1 100%);
+}
+
 .photo-tile-button span {
   display: block;
   padding: 0.42rem 0.5rem;

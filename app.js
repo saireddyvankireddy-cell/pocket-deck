@@ -3,8 +3,18 @@ const DB_VERSION = 2;
 const STORE_NAME = "tracks";
 const PHOTO_STORE_NAME = "photos";
 const PLAYLISTS_STORAGE_KEY = "pocket-deck-playlists-v1";
+const FAVORITES_STORAGE_KEY = "pocket-deck-favorites-v1";
 const AUDIO_EXTENSIONS = new Set(["aac", "flac", "m4a", "mp3", "oga", "ogg", "opus", "wav", "webm"]);
 const PHOTO_EXTENSIONS = new Set(["gif", "heic", "heif", "jpeg", "jpg", "png", "webp"]);
+const CLOUD_CHUNK_SIZE = 1_500_000;
+const CLOUD_SYNC_INTERVAL_MS = 45000;
+const CLOUD_ENDPOINTS = {
+  chunk: "/.netlify/functions/media-chunk",
+  chunkGet: "/.netlify/functions/media-chunk-get",
+  delete: "/.netlify/functions/media-delete",
+  list: "/.netlify/functions/media-list",
+  start: "/.netlify/functions/media-start"
+};
 
 const elements = {
   activeFilterLabel: document.querySelector("#activeFilterLabel"),
@@ -81,8 +91,11 @@ const state = {
   deferredInstallPrompt: null,
   activePlaylistId: null,
   filterMode: "all",
+  favoriteIds: new Set(),
   filteredTracks: [],
   filteredPhotos: [],
+  cloudSyncAvailable: false,
+  cloudSyncInProgress: false,
   playlists: [],
   photos: [],
   photoUiHidden: false,
@@ -102,12 +115,15 @@ let memoryTracks = [];
 let memoryPhotos = [];
 let memoryPlaylists = [];
 let photoUrls = new Map();
+let cloudObjectUrls = new Map();
+let cloudBlobPromises = new Map();
 let seeking = false;
 let lastVolume = Number(elements.volume.value);
 
 init();
 
 function init() {
+  state.favoriteIds = loadFavoriteIds();
   loadPlaylists();
   registerServiceWorker();
   bindEvents();
@@ -122,6 +138,8 @@ function init() {
   renderPlaylists();
   loadTracks();
   loadPhotos();
+  refreshCloudLibrary();
+  window.setInterval(refreshCloudLibrary, CLOUD_SYNC_INTERVAL_MS);
 }
 
 function bindEvents() {
@@ -237,7 +255,7 @@ async function loadTracks() {
 function normalizeTrack(track) {
   return {
     ...track,
-    favorite: Boolean(track.favorite)
+    favorite: Boolean(track.favorite || state.favoriteIds.has(track.id))
   };
 }
 
@@ -274,20 +292,12 @@ async function handleImport(event) {
       skippedDuplicates += 1;
       continue;
     }
-    const track = {
-      id: crypto.randomUUID(),
-      name: cleanTitle(file.name),
-      fileName,
-      type: file.type || "audio/mpeg",
-      size: file.size,
-      addedAt: Date.now(),
-      favorite: false,
-      blob: file
-    };
     try {
-      await putTrack(track);
+      const uploaded = await uploadCloudMedia(file, "audio", fileName, progress => {
+        updateImportStatus(`Uploading ${imported.length + 1} of ${files.length}: ${file.name} (${progress}%)`);
+      });
       existingKeys.add(key);
-      imported.push(track);
+      imported.push(normalizeCloudTrack(uploaded));
     } catch {
       failed += 1;
     }
@@ -299,7 +309,10 @@ async function handleImport(event) {
     return;
   }
 
-  state.tracks = (await readAllTracks()).map(normalizeTrack);
+  await refreshCloudLibrary();
+  if (!state.cloudSyncAvailable) {
+    state.tracks = [...imported, ...state.tracks];
+  }
   renderTracks();
 
   if (!state.currentId) {
@@ -345,6 +358,63 @@ async function loadPhotos() {
   renderPhotos();
 }
 
+async function refreshCloudLibrary() {
+  if (state.cloudSyncInProgress) return;
+  state.cloudSyncInProgress = true;
+
+  try {
+    const [cloudTracks, cloudPhotos] = await Promise.all([
+      listCloudMedia("audio"),
+      listCloudMedia("photo")
+    ]);
+
+    const localTracks = state.tracks.filter(track => !track.cloud && track.blob);
+    const localPhotos = state.photos.filter(photo => !photo.cloud && photo.blob);
+    const currentTrackStillExists = state.currentId && [...cloudTracks, ...localTracks].some(track => track.id === state.currentId);
+    state.cloudSyncAvailable = true;
+    state.tracks = mergeCloudAndLocal(cloudTracks.map(normalizeCloudTrack), localTracks);
+    state.photos = mergeCloudAndLocal(cloudPhotos.map(normalizeCloudPhoto), localPhotos);
+    prunePlaylistTracks();
+    renderPlaylists();
+    renderTracks();
+    renderPhotos();
+
+    if (!state.tracks.length) {
+      resetNowPlaying();
+      renderQueue();
+    } else if (!state.currentId || !currentTrackStillExists) {
+      selectTrack(state.tracks[0].id, false);
+    }
+  } catch {
+    state.cloudSyncAvailable = false;
+  } finally {
+    state.cloudSyncInProgress = false;
+  }
+}
+
+function mergeCloudAndLocal(cloudItems, localItems) {
+  const cloudKeys = new Set(cloudItems.map(item => `${item.fileName}-${item.size}`));
+  return [
+    ...cloudItems,
+    ...localItems.filter(item => !cloudKeys.has(`${item.fileName}-${item.size}`))
+  ];
+}
+
+function normalizeCloudTrack(item) {
+  return normalizeTrack({
+    ...item,
+    cloud: true,
+    favorite: state.favoriteIds.has(item.id)
+  });
+}
+
+function normalizeCloudPhoto(item) {
+  return {
+    ...item,
+    cloud: true
+  };
+}
+
 async function handlePhotoImport(event) {
   const selectedFiles = [...event.target.files];
   const files = selectedFiles.filter(isSupportedPhotoFile);
@@ -371,27 +441,22 @@ async function handlePhotoImport(event) {
       continue;
     }
 
-    const photo = {
-      id: crypto.randomUUID(),
-      name: cleanTitle(file.name),
-      fileName,
-      type: file.type || `image/${getFileExtension(file.name) || "jpeg"}`,
-      size: file.size,
-      addedAt: Date.now(),
-      blob: file
-    };
-
     try {
-      await putPhoto(photo);
+      const uploaded = await uploadCloudMedia(file, "photo", fileName, progress => {
+        updatePhotoImportStatus(`Uploading ${imported.length + 1} of ${files.length}: ${file.name} (${progress}%)`);
+      });
       existingKeys.add(key);
-      imported.push(photo);
+      imported.push(normalizeCloudPhoto(uploaded));
     } catch {
       failed += 1;
     }
   }
 
   event.target.value = "";
-  state.photos = await readAllPhotos();
+  await refreshCloudLibrary();
+  if (!state.cloudSyncAvailable) {
+    state.photos = [...imported, ...state.photos];
+  }
   renderPhotos();
   updatePhotoImportStatus(getPhotoImportSummary(imported.length, skippedDuplicates, skippedUnsupported, failed));
 }
@@ -412,6 +477,86 @@ function getPhotoImportSummary(imported, duplicates, unsupported, failed) {
 
 function updatePhotoImportStatus(message) {
   elements.photoImportStatus.textContent = message;
+}
+
+async function uploadCloudMedia(file, kind, fileName, onProgress) {
+  const chunkCount = Math.ceil(file.size / CLOUD_CHUNK_SIZE);
+  const startResponse = await fetch(CLOUD_ENDPOINTS.start, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      kind,
+      name: cleanTitle(file.name),
+      fileName,
+      type: file.type || getFallbackMediaType(file.name, kind),
+      size: file.size,
+      chunkCount
+    })
+  });
+
+  if (!startResponse.ok) {
+    throw new Error("Cloud upload could not start");
+  }
+
+  const { item } = await startResponse.json();
+  for (let index = 0; index < chunkCount; index += 1) {
+    const start = index * CLOUD_CHUNK_SIZE;
+    const end = Math.min(file.size, start + CLOUD_CHUNK_SIZE);
+    const data = await arrayBufferToBase64(await file.slice(start, end).arrayBuffer());
+    const chunkResponse = await fetch(CLOUD_ENDPOINTS.chunk, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ id: item.id, index, data })
+    });
+
+    if (!chunkResponse.ok) {
+      throw new Error("Cloud upload chunk failed");
+    }
+
+    onProgress?.(Math.round(((index + 1) / chunkCount) * 100));
+  }
+
+  return item;
+}
+
+function getFallbackMediaType(fileName, kind) {
+  const extension = getFileExtension(fileName);
+  if (kind === "photo") {
+    if (extension === "jpg") return "image/jpeg";
+    return `image/${extension || "jpeg"}`;
+  }
+  if (extension === "mp3") return "audio/mpeg";
+  if (extension === "m4a") return "audio/mp4";
+  return `audio/${extension || "mpeg"}`;
+}
+
+async function arrayBufferToBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  const batchSize = 0x8000;
+  for (let index = 0; index < bytes.length; index += batchSize) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + batchSize));
+  }
+  return btoa(binary);
+}
+
+async function listCloudMedia(kind) {
+  const response = await fetch(`${CLOUD_ENDPOINTS.list}?kind=${encodeURIComponent(kind)}`, {
+    cache: "no-store"
+  });
+  if (!response.ok) throw new Error("Cloud list failed");
+  const data = await response.json();
+  return Array.isArray(data.items) ? data.items : [];
+}
+
+async function deleteCloudMedia(id) {
+  const response = await fetch(CLOUD_ENDPOINTS.delete, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ id })
+  });
+  if (!response.ok) throw new Error("Cloud delete failed");
+  revokeCloudObjectUrl(id);
 }
 
 function renderPhotos() {
@@ -451,9 +596,14 @@ function renderPhotos() {
     button.addEventListener("click", () => openPhotoViewer(photo.id));
 
     const image = document.createElement("img");
-    image.src = getPhotoUrl(photo);
     image.alt = photo.name;
     image.loading = "lazy";
+    if (photo.cloud) {
+      image.className = "is-loading";
+      loadCloudImage(photo, image);
+    } else {
+      image.src = getPhotoUrl(photo);
+    }
 
     const name = document.createElement("span");
     name.textContent = photo.name;
@@ -519,7 +669,7 @@ function renderTracks() {
 
     const meta = document.createElement("span");
     meta.className = "track-meta";
-    meta.textContent = "Local";
+    meta.textContent = track.cloud ? "Shared" : "Local";
 
     mainButton.append(trackIndex, trackText, meta);
 
@@ -620,27 +770,37 @@ function getPlaybackPool() {
   return base.length ? base : state.tracks;
 }
 
-function selectTrack(id, autoplay) {
+async function selectTrack(id, autoplay) {
   const track = state.tracks.find(item => item.id === id);
   if (!track) return;
 
   state.currentId = id;
   if (state.currentUrl) URL.revokeObjectURL(state.currentUrl);
-  state.currentUrl = URL.createObjectURL(track.blob);
-  elements.audio.src = state.currentUrl;
   elements.progress.value = 0;
   updateTimeLabels(0);
   updateNowPlaying(track);
   renderTracks();
 
+  try {
+    const url = track.cloud ? await getCloudObjectUrl(track) : URL.createObjectURL(track.blob);
+    if (state.currentId !== id) return;
+    state.currentUrl = track.cloud ? null : url;
+    elements.audio.src = url;
+  } catch {
+    if (state.currentId === id) {
+      elements.miniMeta.textContent = "Could not load this shared song.";
+    }
+    return;
+  }
+
   if (autoplay) {
-    playAudio();
+    await playAudio();
   }
 }
 
 async function togglePlayback() {
   if (!state.currentId && state.tracks.length) {
-    selectTrack(state.tracks[0].id, false);
+    await selectTrack(state.tracks[0].id, false);
   }
   if (!elements.audio.src) return;
 
@@ -723,7 +883,7 @@ function updateTimeLabels(current) {
 
 function updateNowPlaying(track) {
   elements.miniTitle.textContent = track.name;
-  elements.miniMeta.textContent = `${formatBytes(track.size)} · local file`;
+  elements.miniMeta.textContent = `${formatBytes(track.size)} · ${track.cloud ? "shared cloud" : "local file"}`;
   elements.heroCoverText.textContent = getCoverLetter(track.name);
   elements.favoriteCurrentButton.classList.toggle("is-active", track.favorite);
   elements.favoriteCurrentButton.textContent = track.favorite ? "Liked" : "Favorite";
@@ -926,12 +1086,17 @@ async function deleteTrackFromLibrary(trackId) {
   const track = state.tracks.find(item => item.id === trackId);
   if (!track) return;
 
-  const confirmed = confirm(`Remove "${track.name}" from Pocket Deck on this device?`);
+  const target = track.cloud ? "the shared Pocket Deck library on every device" : "Pocket Deck on this device";
+  const confirmed = confirm(`Remove "${track.name}" from ${target}?`);
   if (!confirmed) return;
 
   const wasCurrentTrack = state.currentId === trackId;
   const currentTrackIndex = Math.max(0, state.filteredTracks.findIndex(item => item.id === trackId));
-  await deleteTrack(trackId);
+  if (track.cloud) {
+    await deleteCloudMedia(trackId);
+  } else {
+    await deleteTrack(trackId);
+  }
   state.tracks = state.tracks.filter(item => item.id !== trackId);
   state.filteredTracks = state.filteredTracks.filter(item => item.id !== trackId);
 
@@ -1013,13 +1178,26 @@ function closePhotoViewer() {
   state.photoUiHidden = false;
 }
 
-function updatePhotoViewer() {
+async function updatePhotoViewer() {
   const photo = state.photos.find(item => item.id === state.selectedPhotoId);
   if (!photo) return;
 
   const visiblePhotos = state.filteredPhotos.length ? state.filteredPhotos : state.photos;
   const index = Math.max(0, visiblePhotos.findIndex(item => item.id === photo.id));
-  elements.photoViewerImage.src = getPhotoUrl(photo);
+  elements.photoViewerImage.removeAttribute("src");
+  if (photo.cloud) {
+    getCloudObjectUrl(photo).then(url => {
+      if (state.selectedPhotoId === photo.id) {
+        elements.photoViewerImage.src = url;
+      }
+    }).catch(() => {
+      if (state.selectedPhotoId === photo.id) {
+        elements.photoViewerMeta.textContent = "Could not load this shared photo";
+      }
+    });
+  } else {
+    elements.photoViewerImage.src = getPhotoUrl(photo);
+  }
   elements.photoViewerImage.alt = photo.name;
   elements.photoViewerImage.style.transform = `scale(${state.photoZoom})`;
   elements.photoViewerTitle.textContent = photo.name;
@@ -1070,6 +1248,63 @@ function handleKeyboardShortcuts(event) {
   }
 }
 
+async function loadCloudImage(photo, image) {
+  try {
+    const url = await getCloudObjectUrl(photo);
+    if (image.isConnected) {
+      image.src = url;
+      image.classList.remove("is-loading");
+    }
+  } catch {
+    if (image.isConnected) {
+      image.alt = "Could not load shared photo";
+      image.classList.remove("is-loading");
+    }
+  }
+}
+
+async function getCloudObjectUrl(item) {
+  if (cloudObjectUrls.has(item.id)) {
+    return cloudObjectUrls.get(item.id);
+  }
+
+  const blob = await getCloudBlob(item);
+  const url = URL.createObjectURL(blob);
+  cloudObjectUrls.set(item.id, url);
+  return url;
+}
+
+async function getCloudBlob(item) {
+  if (cloudBlobPromises.has(item.id)) {
+    return cloudBlobPromises.get(item.id);
+  }
+
+  const promise = downloadCloudBlob(item);
+  cloudBlobPromises.set(item.id, promise);
+  return promise;
+}
+
+async function downloadCloudBlob(item) {
+  const chunks = [];
+  for (let index = 0; index < item.chunkCount; index += 1) {
+    const response = await fetch(`${CLOUD_ENDPOINTS.chunkGet}?id=${encodeURIComponent(item.id)}&index=${index}`, {
+      cache: "force-cache"
+    });
+    if (!response.ok) {
+      throw new Error("Could not download shared media");
+    }
+    chunks.push(await response.arrayBuffer());
+  }
+  return new Blob(chunks, { type: item.type || "application/octet-stream" });
+}
+
+function revokeCloudObjectUrl(id) {
+  const url = cloudObjectUrls.get(id);
+  if (url) URL.revokeObjectURL(url);
+  cloudObjectUrls.delete(id);
+  cloudBlobPromises.delete(id);
+}
+
 function getPhotoUrl(photo) {
   if (!photoUrls.has(photo.id)) {
     photoUrls.set(photo.id, URL.createObjectURL(photo.blob));
@@ -1085,12 +1320,21 @@ function revokePhotoUrl(photoId) {
 
 async function clearPhotos() {
   if (!state.photos.length) return;
-  const confirmed = confirm("Clear every imported photo from this browser?");
+  const hasSharedPhotos = state.photos.some(photo => photo.cloud);
+  const confirmed = confirm(hasSharedPhotos ? "Clear every shared photo from Pocket Deck on every device?" : "Clear every imported photo from this browser?");
   if (!confirmed) return;
 
+  if (hasSharedPhotos) {
+    for (const photo of state.photos.filter(item => item.cloud)) {
+      await deleteCloudMedia(photo.id);
+    }
+  }
   await clearPhotoStore();
   photoUrls.forEach(url => URL.revokeObjectURL(url));
   photoUrls = new Map();
+  cloudObjectUrls.forEach(url => URL.revokeObjectURL(url));
+  cloudObjectUrls = new Map();
+  cloudBlobPromises = new Map();
   state.photos = [];
   state.filteredPhotos = [];
   closePhotoViewer();
@@ -1100,6 +1344,25 @@ async function clearPhotos() {
 
 function canUseLocalStorage() {
   return typeof localStorage !== "undefined";
+}
+
+function loadFavoriteIds() {
+  if (!canUseLocalStorage()) return new Set();
+  try {
+    const parsed = JSON.parse(localStorage.getItem(FAVORITES_STORAGE_KEY) || "[]");
+    return new Set(Array.isArray(parsed) ? parsed.filter(id => typeof id === "string") : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveFavoriteIds() {
+  if (!canUseLocalStorage()) return;
+  try {
+    localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify([...state.favoriteIds]));
+  } catch {
+    // Storage might be unavailable in restricted browser contexts.
+  }
 }
 
 function normalizePlaylists(raw) {
@@ -1127,7 +1390,15 @@ async function toggleFavorite(trackId) {
   if (!track) return;
 
   track.favorite = !track.favorite;
-  await putTrack(track);
+  if (track.favorite) {
+    state.favoriteIds.add(track.id);
+  } else {
+    state.favoriteIds.delete(track.id);
+  }
+  saveFavoriteIds();
+  if (!track.cloud) {
+    await putTrack(track);
+  }
   renderTracks();
   if (state.currentId === track.id) {
     updateNowPlaying(track);
@@ -1266,7 +1537,8 @@ function updateMuteUi() {
 
 async function clearLibrary() {
   if (!state.tracks.length) return;
-  const confirmed = confirm("Clear every imported track from this browser?");
+  const hasSharedTracks = state.tracks.some(track => track.cloud);
+  const confirmed = confirm(hasSharedTracks ? "Clear every shared song from Pocket Deck on every device?" : "Clear every imported track from this browser?");
   if (!confirmed) return;
 
   elements.audio.pause();
@@ -1275,6 +1547,11 @@ async function clearLibrary() {
   state.currentId = null;
   state.currentUrl = null;
   stopSleepTimer({ resetSelect: true });
+  if (hasSharedTracks) {
+    for (const track of state.tracks.filter(item => item.cloud)) {
+      await deleteCloudMedia(track.id);
+    }
+  }
   await clearTracks();
   state.tracks = [];
   state.filteredTracks = [];
