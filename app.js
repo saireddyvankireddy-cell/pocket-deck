@@ -280,41 +280,62 @@ function renderTracks() {
       toggleFavorite(track.id);
     });
 
-    const playlistSelect = document.createElement("select");
-    playlistSelect.className = "playlist-add-select";
-    playlistSelect.setAttribute("aria-label", `Add ${track.name} to playlist`);
+    const playlistControl = createPlaylistControl(track);
 
-    if (!state.playlists.length) {
-      const placeholderOption = document.createElement("option");
-      placeholderOption.value = "";
-      placeholderOption.textContent = "No lists";
-      playlistSelect.append(placeholderOption);
-      playlistSelect.disabled = true;
-    } else {
-      const defaultOption = document.createElement("option");
-      defaultOption.value = "";
-      defaultOption.textContent = "Add";
-      playlistSelect.append(defaultOption);
-
-      state.playlists.forEach(playlist => {
-        const option = document.createElement("option");
-        option.value = playlist.id;
-        option.textContent = playlist.name;
-        playlistSelect.append(option);
-      });
-      playlistSelect.addEventListener("change", () => {
-        const targetPlaylistId = playlistSelect.value;
-        if (!targetPlaylistId) return;
-        addTrackToPlaylist(track.id, targetPlaylistId);
-        playlistSelect.value = "";
-      });
-    }
-
-    item.append(mainButton, playlistSelect, favoriteButton);
+    item.append(mainButton, playlistControl, favoriteButton);
     elements.trackList.append(item);
   });
 
   renderQueue();
+}
+
+function createPlaylistControl(track) {
+  if (state.activePlaylistId) {
+    const removeButton = document.createElement("button");
+    removeButton.type = "button";
+    removeButton.className = "playlist-remove-button";
+    removeButton.textContent = "Remove";
+    removeButton.title = "Remove from this playlist";
+    removeButton.addEventListener("click", event => {
+      event.stopPropagation();
+      removeTrackFromPlaylist(track.id, state.activePlaylistId);
+    });
+    return removeButton;
+  }
+
+  const playlistSelect = document.createElement("select");
+  playlistSelect.className = "playlist-add-select";
+  playlistSelect.setAttribute("aria-label", `Add ${track.name} to playlist`);
+
+  if (!state.playlists.length) {
+    const placeholderOption = document.createElement("option");
+    placeholderOption.value = "";
+    placeholderOption.textContent = "No lists";
+    playlistSelect.append(placeholderOption);
+    playlistSelect.disabled = true;
+    return playlistSelect;
+  }
+
+  const defaultOption = document.createElement("option");
+  defaultOption.value = "";
+  defaultOption.textContent = "Add";
+  playlistSelect.append(defaultOption);
+
+  state.playlists.forEach(playlist => {
+    const option = document.createElement("option");
+    option.value = playlist.id;
+    option.textContent = playlist.name;
+    playlistSelect.append(option);
+  });
+
+  playlistSelect.addEventListener("change", () => {
+    const targetPlaylistId = playlistSelect.value;
+    if (!targetPlaylistId) return;
+    addTrackToPlaylist(track.id, targetPlaylistId);
+    playlistSelect.value = "";
+  });
+
+  return playlistSelect;
 }
 
 function getBaseLibrary() {
@@ -333,6 +354,7 @@ function getBaseLibrary() {
 function getPlaybackPool() {
   if (state.filteredTracks.length) return state.filteredTracks;
   const base = getBaseLibrary();
+  if (state.activePlaylistId) return base;
   return base.length ? base : state.tracks;
 }
 
@@ -623,6 +645,19 @@ function addTrackToPlaylist(trackId, playlistId) {
       renderTracks();
     }
   }
+}
+
+function removeTrackFromPlaylist(trackId, playlistId) {
+  const playlist = state.playlists.find(item => item.id === playlistId);
+  if (!playlist) return;
+
+  const before = playlist.trackIds.length;
+  playlist.trackIds = playlist.trackIds.filter(id => id !== trackId);
+  if (playlist.trackIds.length === before) return;
+
+  savePlaylists();
+  renderPlaylists();
+  renderTracks();
 }
 
 function prunePlaylistTracks() {

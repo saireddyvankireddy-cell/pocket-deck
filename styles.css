@@ -462,7 +462,8 @@ h3 {
   font-weight: 700;
 }
 
-.playlist-add-select {
+.playlist-add-select,
+.playlist-remove-button {
   min-height: 3.5rem;
   border: 1px solid var(--line-soft);
   border-radius: 10px;
@@ -471,6 +472,10 @@ h3 {
   font-size: 0.79rem;
   font-weight: 700;
   padding: 0 0.45rem;
+}
+
+.playlist-remove-button {
+  color: #bf1f41;
 }
 
 .favorite-button.is-active {
@@ -738,6 +743,7 @@ input[type="range"] {
   }
 
   .playlist-add-select,
+  .playlist-remove-button,
   .favorite-button {
     min-height: 2.55rem;
     width: 100%;
