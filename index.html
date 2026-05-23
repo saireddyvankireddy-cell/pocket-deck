@@ -29,6 +29,15 @@
           <button id="favoritesFilterButton" class="filter-button" type="button">Favorites</button>
         </nav>
 
+        <section class="playlist-card" aria-label="Playlists">
+          <h3>Playlists</h3>
+          <div class="playlist-create-row">
+            <input id="playlistNameInput" type="text" maxlength="28" placeholder="New playlist name" aria-label="Playlist name">
+            <button id="createPlaylistButton" class="playlist-create-button" type="button">Create</button>
+          </div>
+          <ul id="playlistList" class="playlist-list" aria-label="Playlists"></ul>
+        </section>
+
         <div class="sidebar-actions">
           <button id="installButton" class="ghost-button" type="button" hidden>Install App</button>
           <button id="clearButton" class="ghost-button danger" type="button">Clear Library</button>
