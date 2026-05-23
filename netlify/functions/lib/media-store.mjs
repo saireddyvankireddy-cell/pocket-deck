@@ -1,9 +1,11 @@
 export const SUPPORTED_KINDS = new Set(["audio", "photo"]);
 
 const ROOT_PATH = "/PocketDeck";
-const META_PATH = `${ROOT_PATH}/_meta`;
-const AUDIO_PATH = `${ROOT_PATH}/audio`;
-const PHOTO_PATH = `${ROOT_PATH}/photos`;
+const TEMP_PATH = `${ROOT_PATH}/_uploads`;
+const DEFAULT_AUDIO_PATH = "/Music";
+const DEFAULT_PHOTO_PATH = "/Pictures";
+const AUDIO_EXTENSIONS = new Set(["aac", "flac", "m4a", "mp3", "oga", "ogg", "opus", "wav", "webm"]);
+const PHOTO_EXTENSIONS = new Set(["gif", "heic", "heif", "jpeg", "jpg", "png", "webp"]);
 
 export function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -33,82 +35,184 @@ export function cleanMediaMeta(meta) {
     type: meta.type,
     size: meta.size,
     addedAt: meta.addedAt,
-    chunkCount: meta.chunkCount,
+    chunkCount: meta.chunkCount || 1,
     complete: Boolean(meta.complete)
   };
 }
 
 export async function getMediaMeta(id) {
   if (!id) return null;
-  try {
-    return await downloadJson(`${META_PATH}/${id}.json`);
-  } catch {
-    return null;
-  }
-}
 
-export async function listMediaMeta() {
-  await ensurePocketDeckFolders();
-  const response = await pCloudRequest("listfolder", { path: META_PATH });
-  const contents = response.metadata?.contents || [];
-  const metas = [];
-
-  for (const item of contents) {
-    if (item.isfolder || !item.name.endsWith(".json")) continue;
+  if (id.startsWith("upload-")) {
     try {
-      const meta = await downloadJson(item.path);
-      metas.push(meta);
+      return await downloadJson(`${TEMP_PATH}/${id}/meta.json`);
     } catch {
-      // Ignore malformed or unavailable metadata files.
+      return null;
     }
   }
 
-  return metas;
+  const fileid = Number(id.replace(/^pc-/, ""));
+  if (!Number.isFinite(fileid)) return null;
+  const response = await pCloudRequest("stat", { fileid });
+  return pCloudFileToMeta(response.metadata);
+}
+
+export async function listMediaMeta(kind) {
+  const folders = mediaKindPaths(kind);
+  const metas = [];
+
+  for (const path of folders) {
+    try {
+      const response = await pCloudRequest("listfolder", { path, recursive: 1 });
+      flattenPCloudFiles(response.metadata).forEach(file => {
+        if (isSupportedMediaFile(file, kind)) {
+          metas.push(pCloudFileToMeta(file));
+        }
+      });
+    } catch (error) {
+      if (!isMissingFolderError(error)) throw error;
+    }
+  }
+
+  return dedupeById(metas);
 }
 
 export async function saveMediaMeta(meta) {
-  await ensurePocketDeckFolders();
-  await uploadBytes(META_PATH, `${meta.id}.json`, Buffer.from(JSON.stringify(meta)), "application/json");
+  await ensureFolder(ROOT_PATH);
+  await ensureFolder(TEMP_PATH);
+  await ensureFolder(`${TEMP_PATH}/${meta.id}`);
+  await uploadBytes(`${TEMP_PATH}/${meta.id}`, "meta.json", Buffer.from(JSON.stringify(meta)), "application/json");
 }
 
 export async function saveMediaChunk(meta, index, bytes) {
-  await ensureMediaFolder(meta);
-  await uploadBytes(mediaItemPath(meta), `${index}.chunk`, bytes, "application/octet-stream");
+  await ensureFolder(ROOT_PATH);
+  await ensureFolder(TEMP_PATH);
+  await ensureFolder(`${TEMP_PATH}/${meta.id}`);
+  await uploadBytes(`${TEMP_PATH}/${meta.id}`, `${index}.chunk`, bytes, "application/octet-stream");
 }
 
-export async function getMediaChunk(meta, index) {
-  return downloadBytes(`${mediaItemPath(meta)}/${index}.chunk`);
+export async function finalizeUpload(meta) {
+  const chunks = [];
+  for (let index = 0; index < meta.chunkCount; index += 1) {
+    chunks.push(await downloadBytes(`${TEMP_PATH}/${meta.id}/${index}.chunk`));
+  }
+
+  const uploaded = await uploadBytes(
+    primaryMediaKindPath(meta.kind),
+    meta.fileName,
+    Buffer.concat(chunks),
+    meta.type || "application/octet-stream",
+    { renameIfExists: true }
+  );
+
+  if (!uploaded) {
+    throw new Error("pCloud upload did not return file metadata");
+  }
+
+  await deleteTempUpload(meta);
+  return pCloudFileToMeta(uploaded, meta.kind);
+}
+
+export async function getMediaChunk(meta) {
+  if (meta.fileid) {
+    return downloadBytes({ fileid: meta.fileid });
+  }
+  if (meta.path) {
+    return downloadBytes(meta.path);
+  }
+  throw new Error("Media file has no pCloud path");
 }
 
 export async function deleteMedia(id) {
   const meta = await getMediaMeta(id);
   if (!meta) return null;
 
-  for (let index = 0; index < meta.chunkCount; index += 1) {
-    await deletePath(`${mediaItemPath(meta)}/${index}.chunk`);
+  if (meta.fileid) {
+    await pCloudRequest("deletefile", { fileid: meta.fileid });
+  } else if (meta.path) {
+    await pCloudRequest("deletefile", { path: meta.path });
   }
-  await deletePath(`${META_PATH}/${id}.json`);
+
   return meta;
 }
 
-async function ensurePocketDeckFolders() {
-  await ensureFolder(ROOT_PATH);
-  await ensureFolder(META_PATH);
-  await ensureFolder(AUDIO_PATH);
-  await ensureFolder(PHOTO_PATH);
+function pCloudFileToMeta(file, fallbackKind = null) {
+  const kind = fallbackKind || getMediaKindFromFile(file);
+  return {
+    id: `pc-${file.fileid}`,
+    fileid: file.fileid,
+    path: file.path,
+    kind,
+    name: cleanTitle(file.name),
+    fileName: file.name,
+    type: file.contenttype || getFallbackType(file.name, kind),
+    size: Number(file.size || 0),
+    addedAt: Date.parse(file.created || file.modified || "") || Date.now(),
+    chunkCount: 1,
+    complete: true
+  };
 }
 
-async function ensureMediaFolder(meta) {
-  await ensurePocketDeckFolders();
-  await ensureFolder(mediaItemPath(meta));
+function getMediaKindFromFile(file) {
+  const contentType = file.contenttype || "";
+  if (contentType.startsWith("image/")) return "photo";
+  if (contentType.startsWith("audio/")) return "audio";
+  const extension = getFileExtension(file.name);
+  if (PHOTO_EXTENSIONS.has(extension)) return "photo";
+  return "audio";
 }
 
-function mediaItemPath(meta) {
-  return `${mediaKindPath(meta.kind)}/${meta.id}`;
+function isSupportedMediaFile(file, kind) {
+  if (!file || file.isfolder || !file.fileid) return false;
+  const contentType = file.contenttype || "";
+  const extension = getFileExtension(file.name);
+  if (kind === "photo") return contentType.startsWith("image/") || PHOTO_EXTENSIONS.has(extension);
+  return contentType.startsWith("audio/") || AUDIO_EXTENSIONS.has(extension);
 }
 
-function mediaKindPath(kind) {
-  return kind === "photo" ? PHOTO_PATH : AUDIO_PATH;
+function mediaKindPaths(kind) {
+  const raw = kind === "photo"
+    ? process.env.PCLOUD_PHOTO_PATHS || process.env.PCLOUD_PHOTO_PATH || DEFAULT_PHOTO_PATH
+    : process.env.PCLOUD_AUDIO_PATHS || process.env.PCLOUD_AUDIO_PATH || DEFAULT_AUDIO_PATH;
+
+  return raw
+    .split(",")
+    .map(path => normalizePCloudPath(path))
+    .filter(Boolean);
+}
+
+function primaryMediaKindPath(kind) {
+  return mediaKindPaths(kind)[0] || (kind === "photo" ? DEFAULT_PHOTO_PATH : DEFAULT_AUDIO_PATH);
+}
+
+function flattenPCloudFiles(folder) {
+  const files = [];
+  const stack = [...(folder?.contents || [])];
+  while (stack.length) {
+    const item = stack.pop();
+    if (item.isfolder) {
+      stack.push(...(item.contents || []));
+    } else {
+      files.push(item);
+    }
+  }
+  return files;
+}
+
+function dedupeById(items) {
+  const seen = new Set();
+  return items.filter(item => {
+    if (seen.has(item.id)) return false;
+    seen.add(item.id);
+    return true;
+  });
+}
+
+async function deleteTempUpload(meta) {
+  for (let index = 0; index < meta.chunkCount; index += 1) {
+    await deletePath(`${TEMP_PATH}/${meta.id}/${index}.chunk`);
+  }
+  await deletePath(`${TEMP_PATH}/${meta.id}/meta.json`);
 }
 
 async function ensureFolder(path) {
@@ -119,7 +223,7 @@ async function deletePath(path) {
   try {
     await pCloudRequest("deletefile", { path });
   } catch {
-    // Deleting an already-missing chunk should not block library cleanup.
+    // Deleting an already-missing temporary file should not block cleanup.
   }
 }
 
@@ -128,8 +232,9 @@ async function downloadJson(path) {
   return JSON.parse(new TextDecoder().decode(bytes));
 }
 
-async function downloadBytes(path) {
-  const link = await pCloudRequest("getfilelink", { path });
+async function downloadBytes(target) {
+  const params = typeof target === "string" ? { path: target } : target;
+  const link = await pCloudRequest("getfilelink", params);
   const host = link.hosts?.[0];
   if (!host || !link.path) {
     throw new Error("pCloud file link unavailable");
@@ -143,10 +248,13 @@ async function downloadBytes(path) {
   return Buffer.from(await response.arrayBuffer());
 }
 
-async function uploadBytes(folderPath, filename, bytes, contentType) {
+async function uploadBytes(folderPath, filename, bytes, contentType, options = {}) {
+  await ensureFolder(folderPath);
+
   const formData = new FormData();
   formData.append("path", folderPath);
   formData.append("nopartial", "1");
+  if (options.renameIfExists) formData.append("renameifexists", "1");
   formData.append("file", new Blob([bytes], { type: contentType }), filename);
 
   const response = await fetch(pCloudUrl("uploadfile"), {
@@ -170,7 +278,9 @@ async function pCloudRequest(method, params = {}) {
 
   const data = await response.json().catch(() => null);
   if (!response.ok || data?.result !== 0) {
-    throw new Error(data?.error || `pCloud ${method} failed`);
+    const error = new Error(data?.error || `pCloud ${method} failed`);
+    error.result = data?.result;
+    throw error;
   }
 
   return data;
@@ -202,4 +312,35 @@ function pCloudAuthHeaders() {
     return { authorization: `Bearer ${process.env.PCLOUD_ACCESS_TOKEN}` };
   }
   return {};
+}
+
+function normalizePCloudPath(path) {
+  const cleaned = String(path || "").trim();
+  if (!cleaned) return "";
+  return cleaned.startsWith("/") ? cleaned : `/${cleaned}`;
+}
+
+function getFileExtension(fileName) {
+  const parts = String(fileName || "").toLowerCase().split(".");
+  return parts.length > 1 ? parts.pop() : "";
+}
+
+function getFallbackType(fileName, kind) {
+  const extension = getFileExtension(fileName);
+  if (kind === "photo") {
+    if (extension === "jpg") return "image/jpeg";
+    return `image/${extension || "jpeg"}`;
+  }
+  if (extension === "mp3") return "audio/mpeg";
+  if (extension === "m4a") return "audio/mp4";
+  return `audio/${extension || "mpeg"}`;
+}
+
+function isMissingFolderError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return error?.result === 2005 || message.includes("not found") || message.includes("does not exist");
+}
+
+function cleanTitle(fileName) {
+  return String(fileName || "Untitled").replace(/\.[^/.]+$/, "").replace(/[_-]+/g, " ").trim() || fileName;
 }

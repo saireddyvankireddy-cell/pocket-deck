@@ -21,7 +21,7 @@ export default async request => {
 
   const now = Date.now();
   const meta = {
-    id: crypto.randomUUID(),
+    id: `upload-${crypto.randomUUID()}`,
     kind: body.kind,
     name: String(body.name || body.fileName || "Untitled").slice(0, 180),
     fileName: String(body.fileName || body.name || "media").slice(0, 240),

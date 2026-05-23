@@ -1,4 +1,4 @@
-import { cleanMediaMeta, getMediaMeta, jsonResponse, requirePocketDeckAccess, saveMediaChunk, saveMediaMeta } from "./lib/media-store.mjs";
+import { cleanMediaMeta, finalizeUpload, getMediaMeta, jsonResponse, requirePocketDeckAccess, saveMediaChunk, saveMediaMeta } from "./lib/media-store.mjs";
 
 const MAX_CHUNK_BYTES = 2_200_000;
 
@@ -35,9 +35,14 @@ export default async request => {
 
   meta.uploadedChunks = Math.max(Number(meta.uploadedChunks || 0), index + 1);
   if (index === meta.chunkCount - 1) {
-    meta.complete = true;
-    meta.completedAt = Date.now();
+    const finalMeta = await finalizeUpload({
+      ...meta,
+      complete: true,
+      completedAt: Date.now()
+    });
+    return jsonResponse({ item: cleanMediaMeta(finalMeta), uploadedChunks: meta.chunkCount });
   }
+
   await saveMediaMeta(meta);
 
   return jsonResponse({ item: cleanMediaMeta(meta), uploadedChunks: meta.uploadedChunks });

@@ -14,7 +14,7 @@ export default async request => {
     return jsonResponse({ error: "Invalid media kind" }, 400);
   }
 
-  const metas = await listMediaMeta();
+  const metas = await listMediaMeta(kind);
   const items = metas
     .filter(meta => meta?.kind === kind && meta.complete)
     .map(cleanMediaMeta);

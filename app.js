@@ -528,6 +528,7 @@ async function uploadCloudMedia(file, kind, fileName, onProgress) {
   }
 
   const { item } = await startResponse.json();
+  let uploadedItem = item;
   for (let index = 0; index < chunkCount; index += 1) {
     const start = index * CLOUD_CHUNK_SIZE;
     const end = Math.min(file.size, start + CLOUD_CHUNK_SIZE);
@@ -542,10 +543,13 @@ async function uploadCloudMedia(file, kind, fileName, onProgress) {
       throw new Error("Cloud upload chunk failed");
     }
 
+    const chunkData = await chunkResponse.json().catch(() => null);
+    if (chunkData?.item) uploadedItem = chunkData.item;
+
     onProgress?.(Math.round(((index + 1) / chunkCount) * 100));
   }
 
-  return item;
+  return uploadedItem;
 }
 
 function getFallbackMediaType(fileName, kind) {
@@ -717,7 +721,7 @@ function renderTracks() {
     deleteButton.type = "button";
     deleteButton.className = "track-delete-button";
     deleteButton.textContent = "Delete";
-    deleteButton.title = "Remove this imported song";
+    deleteButton.title = track.cloud ? "Delete this song from pCloud" : "Remove this imported song";
     deleteButton.addEventListener("click", event => {
       event.stopPropagation();
       deleteTrackFromLibrary(track.id);
@@ -1115,7 +1119,7 @@ async function deleteTrackFromLibrary(trackId) {
   const track = state.tracks.find(item => item.id === trackId);
   if (!track) return;
 
-  const target = track.cloud ? "the shared Pocket Deck library on every device" : "Pocket Deck on this device";
+  const target = track.cloud ? "pCloud music on every device" : "Pocket Deck on this device";
   const confirmed = confirm(`Remove "${track.name}" from ${target}?`);
   if (!confirmed) return;
 
@@ -1350,7 +1354,7 @@ function revokePhotoUrl(photoId) {
 async function clearPhotos() {
   if (!state.photos.length) return;
   const hasSharedPhotos = state.photos.some(photo => photo.cloud);
-  const confirmed = confirm(hasSharedPhotos ? "Clear every shared photo from Pocket Deck on every device?" : "Clear every imported photo from this browser?");
+  const confirmed = confirm(hasSharedPhotos ? "Delete every shared photo from pCloud on every device?" : "Clear every imported photo from this browser?");
   if (!confirmed) return;
 
   if (hasSharedPhotos) {
@@ -1567,7 +1571,7 @@ function updateMuteUi() {
 async function clearLibrary() {
   if (!state.tracks.length) return;
   const hasSharedTracks = state.tracks.some(track => track.cloud);
-  const confirmed = confirm(hasSharedTracks ? "Clear every shared song from Pocket Deck on every device?" : "Clear every imported track from this browser?");
+  const confirmed = confirm(hasSharedTracks ? "Delete every shared song from pCloud on every device?" : "Clear every imported track from this browser?");
   if (!confirmed) return;
 
   elements.audio.pause();
