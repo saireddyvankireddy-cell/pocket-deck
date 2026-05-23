@@ -18,38 +18,60 @@
           <h1>Pocket Deck</h1>
         </header>
 
-        <section class="import-card" aria-label="Import music">
-          <label class="primary-button" for="fileInput">Import Audio</label>
-          <label class="secondary-button" for="folderInput">Import Folder</label>
-          <input id="fileInput" type="file" accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg,.oga,.opus,.flac,.webm" multiple>
-          <input id="folderInput" type="file" accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg,.oga,.opus,.flac,.webm" multiple webkitdirectory>
-          <p>Tracks are saved in this browser and stay offline-ready.</p>
-          <span id="importStatus" class="import-status" aria-live="polite"></span>
-        </section>
-
-        <nav class="filter-nav" aria-label="Library filters">
-          <button id="allFilterButton" class="filter-button is-active" type="button">Songs</button>
-          <button id="favoritesFilterButton" class="filter-button" type="button">Favorites</button>
+        <nav class="app-tabs" aria-label="Pocket Deck sections">
+          <button id="musicTabButton" class="app-tab is-active" type="button">Music</button>
+          <button id="photosTabButton" class="app-tab" type="button">Photos</button>
         </nav>
 
-        <section class="playlist-card" aria-label="Playlists">
-          <h3>Playlists</h3>
-          <div class="playlist-create-row">
-            <input id="playlistNameInput" type="text" maxlength="28" placeholder="New playlist name" aria-label="Playlist name">
-            <button id="createPlaylistButton" class="playlist-create-button" type="button">Create</button>
-          </div>
-          <ul id="playlistList" class="playlist-list" aria-label="Playlists"></ul>
-        </section>
+        <div id="musicSidebarPanel" class="sidebar-panel">
+          <section class="import-card" aria-label="Import music">
+            <label class="primary-button" for="fileInput">Import Audio</label>
+            <label class="secondary-button" for="folderInput">Import Folder</label>
+            <input id="fileInput" type="file" accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg,.oga,.opus,.flac,.webm" multiple>
+            <input id="folderInput" type="file" accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg,.oga,.opus,.flac,.webm" multiple webkitdirectory>
+            <p>Tracks are saved in this browser and stay offline-ready.</p>
+            <span id="importStatus" class="import-status" aria-live="polite"></span>
+          </section>
 
-        <div class="sidebar-actions">
-          <button id="installButton" class="ghost-button" type="button" hidden>Install App</button>
-          <button id="clearButton" class="ghost-button danger" type="button">Clear Library</button>
+          <nav class="filter-nav" aria-label="Library filters">
+            <button id="allFilterButton" class="filter-button is-active" type="button">Songs</button>
+            <button id="favoritesFilterButton" class="filter-button" type="button">Favorites</button>
+          </nav>
+
+          <section class="playlist-card" aria-label="Playlists">
+            <h3>Playlists</h3>
+            <div class="playlist-create-row">
+              <input id="playlistNameInput" type="text" maxlength="28" placeholder="New playlist name" aria-label="Playlist name">
+              <button id="createPlaylistButton" class="playlist-create-button" type="button">Create</button>
+            </div>
+            <ul id="playlistList" class="playlist-list" aria-label="Playlists"></ul>
+          </section>
+
+          <div class="sidebar-actions">
+            <button id="installButton" class="ghost-button" type="button" hidden>Install App</button>
+            <button id="clearButton" class="ghost-button danger" type="button">Clear Library</button>
+          </div>
+        </div>
+
+        <div id="photoSidebarPanel" class="sidebar-panel" hidden>
+          <section class="import-card" aria-label="Import photos">
+            <label class="primary-button" for="photoInput">Import Photos</label>
+            <label class="secondary-button" for="photoFolderInput">Import Folder</label>
+            <input id="photoInput" type="file" accept="image/*,.jpg,.jpeg,.png,.gif,.webp,.heic,.heif" multiple>
+            <input id="photoFolderInput" type="file" accept="image/*,.jpg,.jpeg,.png,.gif,.webp,.heic,.heif" multiple webkitdirectory>
+            <p>Photos stay in this browser and open in a clean viewer.</p>
+            <span id="photoImportStatus" class="import-status" aria-live="polite"></span>
+          </section>
+
+          <div class="sidebar-actions">
+            <button id="clearPhotosButton" class="ghost-button danger" type="button">Clear Photos</button>
+          </div>
         </div>
 
         <p class="sidebar-note">No cloud sync, no uploads, and no streaming APIs. Playback is local to this device.</p>
       </aside>
 
-      <section class="content-panel" aria-label="Music library">
+      <section id="musicPanel" class="content-panel" aria-label="Music library">
         <header class="content-header">
           <div>
             <p class="eyebrow">Library</p>
@@ -80,6 +102,31 @@
             <ul id="queueList" class="queue-list"></ul>
           </aside>
         </div>
+      </section>
+
+      <section id="photoPanel" class="content-panel photo-panel" aria-label="Photo library" hidden>
+        <header class="content-header">
+          <div>
+            <p class="eyebrow">Photos</p>
+            <h2>Your Library</h2>
+          </div>
+          <div class="header-tools">
+            <input id="photoSearchInput" type="search" placeholder="Search photos" autocomplete="off">
+            <select id="photoSortSelect" aria-label="Sort photos">
+              <option value="recent">Recently Added</option>
+              <option value="name">Name</option>
+              <option value="size">File Size</option>
+            </select>
+          </div>
+        </header>
+
+        <section class="photo-library">
+          <div class="library-head">
+            <span id="photoCount">0 photos</span>
+            <span>Photos</span>
+          </div>
+          <ul id="photoGrid" class="photo-grid" aria-label="Imported photos"></ul>
+        </section>
       </section>
     </main>
 
@@ -140,10 +187,41 @@
       <audio id="audio"></audio>
     </footer>
 
+    <section id="photoViewer" class="photo-viewer" aria-label="Photo viewer" hidden>
+      <div class="photo-viewer-top">
+        <div>
+          <strong id="photoViewerTitle">Photo</strong>
+          <span id="photoViewerMeta">1 of 1</span>
+        </div>
+        <button id="closePhotoButton" class="viewer-button" type="button">Close</button>
+      </div>
+
+      <button id="previousPhotoButton" class="photo-nav-button previous" type="button" title="Previous photo">‹</button>
+      <div id="photoStage" class="photo-stage">
+        <img id="photoViewerImage" alt="">
+      </div>
+      <button id="nextPhotoButton" class="photo-nav-button next" type="button" title="Next photo">›</button>
+
+      <div class="photo-viewer-bottom">
+        <button id="zoomOutButton" class="viewer-button" type="button">-</button>
+        <input id="photoZoomRange" type="range" min="1" max="3" step="0.1" value="1" aria-label="Photo zoom">
+        <button id="zoomInButton" class="viewer-button" type="button">+</button>
+        <button id="fitPhotoButton" class="viewer-button" type="button">Fit</button>
+        <button id="hidePhotoUiButton" class="viewer-button" type="button">Hide</button>
+      </div>
+    </section>
+
     <template id="emptyTemplate">
       <li class="empty-state">
         <strong>No tracks in this view.</strong>
         <span>Import MP3, WAV, M4A, OGG, or FLAC files from this device.</span>
+      </li>
+    </template>
+
+    <template id="photoEmptyTemplate">
+      <li class="photo-empty-state">
+        <strong>No photos yet.</strong>
+        <span>Import JPG, PNG, WEBP, GIF, or HEIC photos from this device.</span>
       </li>
     </template>
 

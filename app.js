@@ -1,14 +1,18 @@
 const DB_NAME = "pocket-deck";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_NAME = "tracks";
+const PHOTO_STORE_NAME = "photos";
 const PLAYLISTS_STORAGE_KEY = "pocket-deck-playlists-v1";
 const AUDIO_EXTENSIONS = new Set(["aac", "flac", "m4a", "mp3", "oga", "ogg", "opus", "wav", "webm"]);
+const PHOTO_EXTENSIONS = new Set(["gif", "heic", "heif", "jpeg", "jpg", "png", "webp"]);
 
 const elements = {
   activeFilterLabel: document.querySelector("#activeFilterLabel"),
   allFilterButton: document.querySelector("#allFilterButton"),
   audio: document.querySelector("#audio"),
   clearButton: document.querySelector("#clearButton"),
+  clearPhotosButton: document.querySelector("#clearPhotosButton"),
+  closePhotoButton: document.querySelector("#closePhotoButton"),
   currentTime: document.querySelector("#currentTime"),
   createPlaylistButton: document.querySelector("#createPlaylistButton"),
   duration: document.querySelector("#duration"),
@@ -18,17 +22,41 @@ const elements = {
   fileInput: document.querySelector("#fileInput"),
   folderInput: document.querySelector("#folderInput"),
   heroCoverText: document.querySelector("#heroCoverText"),
+  hidePhotoUiButton: document.querySelector("#hidePhotoUiButton"),
   importStatus: document.querySelector("#importStatus"),
   installButton: document.querySelector("#installButton"),
+  fitPhotoButton: document.querySelector("#fitPhotoButton"),
   miniMeta: document.querySelector("#miniMeta"),
   miniTitle: document.querySelector("#miniTitle"),
+  musicPanel: document.querySelector("#musicPanel"),
+  musicSidebarPanel: document.querySelector("#musicSidebarPanel"),
+  musicTabButton: document.querySelector("#musicTabButton"),
   muteButton: document.querySelector("#muteButton"),
   nextButton: document.querySelector("#nextButton"),
+  nextPhotoButton: document.querySelector("#nextPhotoButton"),
+  photoCount: document.querySelector("#photoCount"),
+  photoEmptyTemplate: document.querySelector("#photoEmptyTemplate"),
+  photoFolderInput: document.querySelector("#photoFolderInput"),
+  photoGrid: document.querySelector("#photoGrid"),
+  photoImportStatus: document.querySelector("#photoImportStatus"),
+  photoInput: document.querySelector("#photoInput"),
+  photoPanel: document.querySelector("#photoPanel"),
+  photoSearchInput: document.querySelector("#photoSearchInput"),
+  photoSidebarPanel: document.querySelector("#photoSidebarPanel"),
+  photoSortSelect: document.querySelector("#photoSortSelect"),
+  photoStage: document.querySelector("#photoStage"),
+  photosTabButton: document.querySelector("#photosTabButton"),
+  photoViewer: document.querySelector("#photoViewer"),
+  photoViewerImage: document.querySelector("#photoViewerImage"),
+  photoViewerMeta: document.querySelector("#photoViewerMeta"),
+  photoViewerTitle: document.querySelector("#photoViewerTitle"),
+  photoZoomRange: document.querySelector("#photoZoomRange"),
   playlistList: document.querySelector("#playlistList"),
   playlistNameInput: document.querySelector("#playlistNameInput"),
   playButton: document.querySelector("#playButton"),
   playIcon: document.querySelector("#playIcon"),
   previousButton: document.querySelector("#previousButton"),
+  previousPhotoButton: document.querySelector("#previousPhotoButton"),
   progress: document.querySelector("#progress"),
   queueHint: document.querySelector("#queueHint"),
   queueList: document.querySelector("#queueList"),
@@ -41,18 +69,26 @@ const elements = {
   speedSelect: document.querySelector("#speedSelect"),
   trackCount: document.querySelector("#trackCount"),
   trackList: document.querySelector("#trackList"),
-  volume: document.querySelector("#volume")
+  volume: document.querySelector("#volume"),
+  zoomInButton: document.querySelector("#zoomInButton"),
+  zoomOutButton: document.querySelector("#zoomOutButton")
 };
 
 const state = {
+  activeView: "music",
   currentId: null,
   currentUrl: null,
   deferredInstallPrompt: null,
   activePlaylistId: null,
   filterMode: "all",
   filteredTracks: [],
+  filteredPhotos: [],
   playlists: [],
+  photos: [],
+  photoUiHidden: false,
+  photoZoom: 1,
   repeatMode: "off",
+  selectedPhotoId: null,
   sleepTimerEndAt: null,
   sleepTimerSelection: "0",
   sleepTimerTickerId: null,
@@ -63,7 +99,9 @@ const state = {
 
 let dbPromise = openDatabase();
 let memoryTracks = [];
+let memoryPhotos = [];
 let memoryPlaylists = [];
+let photoUrls = new Map();
 let seeking = false;
 let lastVolume = Number(elements.volume.value);
 
@@ -83,11 +121,19 @@ function init() {
   updateSleepTimerUi();
   renderPlaylists();
   loadTracks();
+  loadPhotos();
 }
 
 function bindEvents() {
+  elements.musicTabButton.addEventListener("click", () => setActiveView("music"));
+  elements.photosTabButton.addEventListener("click", () => setActiveView("photos"));
   elements.fileInput.addEventListener("change", handleImport);
   elements.folderInput.addEventListener("change", handleImport);
+  elements.photoInput.addEventListener("change", handlePhotoImport);
+  elements.photoFolderInput.addEventListener("change", handlePhotoImport);
+  elements.photoSearchInput.addEventListener("input", renderPhotos);
+  elements.photoSortSelect.addEventListener("change", renderPhotos);
+  elements.clearPhotosButton.addEventListener("click", clearPhotos);
   elements.searchInput.addEventListener("input", renderTracks);
   elements.sortSelect.addEventListener("change", renderTracks);
   elements.allFilterButton.addEventListener("click", () => setFilter("all"));
@@ -145,6 +191,29 @@ function bindEvents() {
     elements.installButton.hidden = false;
   });
   elements.installButton.addEventListener("click", installApp);
+  elements.closePhotoButton.addEventListener("click", closePhotoViewer);
+  elements.previousPhotoButton.addEventListener("click", () => showRelativePhoto(-1));
+  elements.nextPhotoButton.addEventListener("click", () => showRelativePhoto(1));
+  elements.zoomOutButton.addEventListener("click", () => setPhotoZoom(state.photoZoom - 0.25));
+  elements.zoomInButton.addEventListener("click", () => setPhotoZoom(state.photoZoom + 0.25));
+  elements.fitPhotoButton.addEventListener("click", () => setPhotoZoom(1));
+  elements.hidePhotoUiButton.addEventListener("click", () => setPhotoViewerUiHidden(true));
+  elements.photoZoomRange.addEventListener("input", () => setPhotoZoom(Number(elements.photoZoomRange.value)));
+  elements.photoStage.addEventListener("click", () => setPhotoViewerUiHidden(!state.photoUiHidden));
+  window.addEventListener("keydown", handleKeyboardShortcuts);
+}
+
+function setActiveView(view) {
+  state.activeView = view;
+  const isPhotos = view === "photos";
+
+  elements.musicTabButton.classList.toggle("is-active", !isPhotos);
+  elements.photosTabButton.classList.toggle("is-active", isPhotos);
+  elements.musicSidebarPanel.hidden = isPhotos;
+  elements.photoSidebarPanel.hidden = !isPhotos;
+  elements.musicPanel.hidden = isPhotos;
+  elements.photoPanel.hidden = !isPhotos;
+  document.body.classList.toggle("photos-active", isPhotos);
 }
 
 async function loadTracks() {
@@ -265,6 +334,134 @@ function getImportSummary(imported, duplicates, unsupported, failed) {
 
 function updateImportStatus(message) {
   elements.importStatus.textContent = message;
+}
+
+async function loadPhotos() {
+  try {
+    state.photos = await readAllPhotos();
+  } catch {
+    state.photos = [...memoryPhotos];
+  }
+  renderPhotos();
+}
+
+async function handlePhotoImport(event) {
+  const selectedFiles = [...event.target.files];
+  const files = selectedFiles.filter(isSupportedPhotoFile);
+  const skippedUnsupported = selectedFiles.length - files.length;
+
+  if (!files.length) {
+    updatePhotoImportStatus(selectedFiles.length ? "No supported photos found." : "");
+    event.target.value = "";
+    return;
+  }
+
+  const existingKeys = new Set(state.photos.map(photo => `${photo.fileName}-${photo.size}`));
+  const imported = [];
+  let skippedDuplicates = 0;
+  let failed = 0;
+
+  updatePhotoImportStatus(`Importing ${files.length} photos...`);
+
+  for (const file of files) {
+    const fileName = getImportFileName(file);
+    const key = `${fileName}-${file.size}`;
+    if (existingKeys.has(key)) {
+      skippedDuplicates += 1;
+      continue;
+    }
+
+    const photo = {
+      id: crypto.randomUUID(),
+      name: cleanTitle(file.name),
+      fileName,
+      type: file.type || `image/${getFileExtension(file.name) || "jpeg"}`,
+      size: file.size,
+      addedAt: Date.now(),
+      blob: file
+    };
+
+    try {
+      await putPhoto(photo);
+      existingKeys.add(key);
+      imported.push(photo);
+    } catch {
+      failed += 1;
+    }
+  }
+
+  event.target.value = "";
+  state.photos = await readAllPhotos();
+  renderPhotos();
+  updatePhotoImportStatus(getPhotoImportSummary(imported.length, skippedDuplicates, skippedUnsupported, failed));
+}
+
+function isSupportedPhotoFile(file) {
+  if (file.type.startsWith("image/")) return true;
+  return PHOTO_EXTENSIONS.has(getFileExtension(file.name));
+}
+
+function getPhotoImportSummary(imported, duplicates, unsupported, failed) {
+  const details = [];
+  if (duplicates) details.push(`${duplicates} duplicate`);
+  if (unsupported) details.push(`${unsupported} unsupported`);
+  if (failed) details.push(`${failed} failed`);
+  const suffix = details.length ? ` · skipped ${details.join(", ")}` : "";
+  return `Imported ${imported} photo${imported === 1 ? "" : "s"}${suffix}`;
+}
+
+function updatePhotoImportStatus(message) {
+  elements.photoImportStatus.textContent = message;
+}
+
+function renderPhotos() {
+  const query = elements.photoSearchInput.value.trim().toLowerCase();
+  const sort = elements.photoSortSelect.value;
+  let photos = [...state.photos];
+
+  if (query) {
+    photos = photos.filter(photo => {
+      return photo.name.toLowerCase().includes(query) || photo.fileName.toLowerCase().includes(query);
+    });
+  }
+
+  photos.sort((a, b) => {
+    if (sort === "name") return a.name.localeCompare(b.name);
+    if (sort === "size") return b.size - a.size;
+    return b.addedAt - a.addedAt;
+  });
+
+  state.filteredPhotos = photos;
+  elements.photoGrid.innerHTML = "";
+  elements.photoCount.textContent = `${photos.length} shown · ${state.photos.length} total`;
+
+  if (!photos.length) {
+    elements.photoGrid.append(elements.photoEmptyTemplate.content.cloneNode(true));
+    return;
+  }
+
+  photos.forEach(photo => {
+    const item = document.createElement("li");
+    item.className = "photo-tile";
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "photo-tile-button";
+    button.title = photo.name;
+    button.addEventListener("click", () => openPhotoViewer(photo.id));
+
+    const image = document.createElement("img");
+    image.src = getPhotoUrl(photo);
+    image.alt = photo.name;
+    image.loading = "lazy";
+
+    const name = document.createElement("span");
+    name.textContent = photo.name;
+
+    button.append(image, name);
+    item.append(button);
+    elements.photoGrid.append(item);
+  });
 }
 
 function renderTracks() {
@@ -797,6 +994,110 @@ function getFilterLabel() {
   return state.filterMode === "favorites" ? "Favorites" : "All songs";
 }
 
+function openPhotoViewer(photoId) {
+  const photo = state.photos.find(item => item.id === photoId);
+  if (!photo) return;
+
+  state.selectedPhotoId = photoId;
+  state.photoZoom = 1;
+  state.photoUiHidden = false;
+  elements.photoViewer.hidden = false;
+  document.body.classList.add("photo-viewer-open");
+  updatePhotoViewer();
+}
+
+function closePhotoViewer() {
+  elements.photoViewer.hidden = true;
+  document.body.classList.remove("photo-viewer-open");
+  state.selectedPhotoId = null;
+  state.photoUiHidden = false;
+}
+
+function updatePhotoViewer() {
+  const photo = state.photos.find(item => item.id === state.selectedPhotoId);
+  if (!photo) return;
+
+  const visiblePhotos = state.filteredPhotos.length ? state.filteredPhotos : state.photos;
+  const index = Math.max(0, visiblePhotos.findIndex(item => item.id === photo.id));
+  elements.photoViewerImage.src = getPhotoUrl(photo);
+  elements.photoViewerImage.alt = photo.name;
+  elements.photoViewerImage.style.transform = `scale(${state.photoZoom})`;
+  elements.photoViewerTitle.textContent = photo.name;
+  elements.photoViewerMeta.textContent = `${index + 1} of ${visiblePhotos.length} · ${formatBytes(photo.size)}`;
+  elements.photoZoomRange.value = String(state.photoZoom);
+  elements.photoViewer.classList.toggle("is-ui-hidden", state.photoUiHidden);
+}
+
+function showRelativePhoto(direction) {
+  const photos = state.filteredPhotos.length ? state.filteredPhotos : state.photos;
+  if (!photos.length || !state.selectedPhotoId) return;
+
+  const currentIndex = Math.max(0, photos.findIndex(photo => photo.id === state.selectedPhotoId));
+  const nextIndex = (currentIndex + direction + photos.length) % photos.length;
+  state.selectedPhotoId = photos[nextIndex].id;
+  state.photoZoom = 1;
+  state.photoUiHidden = false;
+  updatePhotoViewer();
+}
+
+function setPhotoZoom(value) {
+  state.photoZoom = Math.min(3, Math.max(1, Number(value) || 1));
+  updatePhotoViewer();
+}
+
+function setPhotoViewerUiHidden(hidden) {
+  state.photoUiHidden = hidden;
+  updatePhotoViewer();
+}
+
+function handleKeyboardShortcuts(event) {
+  if (elements.photoViewer.hidden) return;
+
+  if (event.key === "Escape") {
+    if (state.photoUiHidden) {
+      setPhotoViewerUiHidden(false);
+    } else {
+      closePhotoViewer();
+    }
+  } else if (event.key === "ArrowLeft") {
+    showRelativePhoto(-1);
+  } else if (event.key === "ArrowRight") {
+    showRelativePhoto(1);
+  } else if (event.key === "+" || event.key === "=") {
+    setPhotoZoom(state.photoZoom + 0.25);
+  } else if (event.key === "-") {
+    setPhotoZoom(state.photoZoom - 0.25);
+  }
+}
+
+function getPhotoUrl(photo) {
+  if (!photoUrls.has(photo.id)) {
+    photoUrls.set(photo.id, URL.createObjectURL(photo.blob));
+  }
+  return photoUrls.get(photo.id);
+}
+
+function revokePhotoUrl(photoId) {
+  const url = photoUrls.get(photoId);
+  if (url) URL.revokeObjectURL(url);
+  photoUrls.delete(photoId);
+}
+
+async function clearPhotos() {
+  if (!state.photos.length) return;
+  const confirmed = confirm("Clear every imported photo from this browser?");
+  if (!confirmed) return;
+
+  await clearPhotoStore();
+  photoUrls.forEach(url => URL.revokeObjectURL(url));
+  photoUrls = new Map();
+  state.photos = [];
+  state.filteredPhotos = [];
+  closePhotoViewer();
+  renderPhotos();
+  updatePhotoImportStatus("Cleared photos");
+}
+
 function canUseLocalStorage() {
   return typeof localStorage !== "undefined";
 }
@@ -999,20 +1300,26 @@ function openDatabase() {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
     request.onupgradeneeded = () => {
-      request.result.createObjectStore(STORE_NAME, { keyPath: "id" });
+      const db = request.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME, { keyPath: "id" });
+      }
+      if (!db.objectStoreNames.contains(PHOTO_STORE_NAME)) {
+        db.createObjectStore(PHOTO_STORE_NAME, { keyPath: "id" });
+      }
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
   });
 }
 
-async function withStore(mode, callback) {
+async function withStore(mode, callback, storeName = STORE_NAME) {
   const db = await dbPromise;
   if (!db) return null;
 
   return new Promise((resolve, reject) => {
-    const transaction = db.transaction(STORE_NAME, mode);
-    const store = transaction.objectStore(STORE_NAME);
+    const transaction = db.transaction(storeName, mode);
+    const store = transaction.objectStore(storeName);
     const request = callback(store);
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
@@ -1040,6 +1347,29 @@ function deleteTrack(trackId) {
     return Promise.resolve();
   }
   return withStore("readwrite", store => store.delete(trackId));
+}
+
+function readAllPhotos() {
+  if (!("indexedDB" in window)) {
+    return Promise.resolve([...memoryPhotos]);
+  }
+  return withStore("readonly", store => store.getAll(), PHOTO_STORE_NAME);
+}
+
+async function putPhoto(photo) {
+  if (!("indexedDB" in window)) {
+    memoryPhotos = [photo, ...memoryPhotos.filter(item => item.id !== photo.id)];
+    return photo;
+  }
+  return withStore("readwrite", store => store.put(photo), PHOTO_STORE_NAME);
+}
+
+function clearPhotoStore() {
+  if (!("indexedDB" in window)) {
+    memoryPhotos = [];
+    return Promise.resolve();
+  }
+  return withStore("readwrite", store => store.clear(), PHOTO_STORE_NAME);
 }
 
 function clearTracks() {
