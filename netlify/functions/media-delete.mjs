@@ -1,6 +1,9 @@
-import { cleanMediaMeta, deleteMedia, jsonResponse } from "./lib/media-store.mjs";
+import { cleanMediaMeta, deleteMedia, jsonResponse, requirePocketDeckAccess } from "./lib/media-store.mjs";
 
 export default async request => {
+  const denied = requirePocketDeckAccess(request);
+  if (denied) return denied;
+
   if (request.method !== "POST" && request.method !== "DELETE") {
     return jsonResponse({ error: "Method not allowed" }, 405);
   }

@@ -1,6 +1,9 @@
-import { cleanMediaMeta, getMetaStore, jsonResponse, SUPPORTED_KINDS } from "./lib/media-store.mjs";
+import { cleanMediaMeta, jsonResponse, listMediaMeta, requirePocketDeckAccess, SUPPORTED_KINDS } from "./lib/media-store.mjs";
 
 export default async request => {
+  const denied = requirePocketDeckAccess(request);
+  if (denied) return denied;
+
   if (request.method !== "GET") {
     return jsonResponse({ error: "Method not allowed" }, 405);
   }
@@ -11,18 +14,10 @@ export default async request => {
     return jsonResponse({ error: "Invalid media kind" }, 400);
   }
 
-  const store = getMetaStore();
-  const items = [];
-
-  for await (const page of store.list({ paginate: true })) {
-    for (const blob of page.blobs) {
-      const key = typeof blob === "string" ? blob : blob.key;
-      const meta = await store.get(key, { type: "json", consistency: "strong" });
-      if (meta?.kind === kind && meta.complete) {
-        items.push(cleanMediaMeta(meta));
-      }
-    }
-  }
+  const metas = await listMediaMeta();
+  const items = metas
+    .filter(meta => meta?.kind === kind && meta.complete)
+    .map(cleanMediaMeta);
 
   items.sort((a, b) => b.addedAt - a.addedAt);
   return jsonResponse({ items });

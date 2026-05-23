@@ -1,8 +1,11 @@
-import { cleanMediaMeta, getChunkStore, getMediaMeta, jsonResponse, saveMediaMeta } from "./lib/media-store.mjs";
+import { cleanMediaMeta, getMediaMeta, jsonResponse, requirePocketDeckAccess, saveMediaChunk, saveMediaMeta } from "./lib/media-store.mjs";
 
 const MAX_CHUNK_BYTES = 2_200_000;
 
 export default async request => {
+  const denied = requirePocketDeckAccess(request);
+  if (denied) return denied;
+
   if (request.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405);
   }
@@ -28,9 +31,7 @@ export default async request => {
     return jsonResponse({ error: "Invalid chunk size" }, 400);
   }
 
-  await getChunkStore().set(`${id}/${index}`, bytes, {
-    metadata: { id, index }
-  });
+  await saveMediaChunk(meta, index, bytes);
 
   meta.uploadedChunks = Math.max(Number(meta.uploadedChunks || 0), index + 1);
   if (index === meta.chunkCount - 1) {

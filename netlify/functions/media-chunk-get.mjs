@@ -1,6 +1,9 @@
-import { getChunkStore, getMediaMeta, jsonResponse } from "./lib/media-store.mjs";
+import { getMediaChunk, getMediaMeta, jsonResponse, requirePocketDeckAccess } from "./lib/media-store.mjs";
 
 export default async request => {
+  const denied = requirePocketDeckAccess(request);
+  if (denied) return denied;
+
   if (request.method !== "GET") {
     return jsonResponse({ error: "Method not allowed" }, 405);
   }
@@ -17,13 +20,7 @@ export default async request => {
     return jsonResponse({ error: "Chunk not found" }, 404);
   }
 
-  const chunk = await getChunkStore().get(`${id}/${index}`, {
-    type: "arrayBuffer",
-    consistency: "strong"
-  });
-  if (chunk === null) {
-    return jsonResponse({ error: "Chunk not found" }, 404);
-  }
+  const chunk = await getMediaChunk(meta, index);
 
   return new Response(chunk, {
     headers: {

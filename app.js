@@ -2,6 +2,7 @@ const DB_NAME = "pocket-deck";
 const DB_VERSION = 2;
 const STORE_NAME = "tracks";
 const PHOTO_STORE_NAME = "photos";
+const ACCESS_KEY_STORAGE_KEY = "pocket-deck-access-key";
 const PLAYLISTS_STORAGE_KEY = "pocket-deck-playlists-v1";
 const FAVORITES_STORAGE_KEY = "pocket-deck-favorites-v1";
 const AUDIO_EXTENSIONS = new Set(["aac", "flac", "m4a", "mp3", "oga", "ogg", "opus", "wav", "webm"]);
@@ -479,9 +480,37 @@ function updatePhotoImportStatus(message) {
   elements.photoImportStatus.textContent = message;
 }
 
+async function cloudFetch(url, options = {}, retryOnAccessDenied = true) {
+  const headers = new Headers(options.headers || {});
+  const accessKey = getPocketDeckAccessKey();
+  if (accessKey) {
+    headers.set("x-pocket-deck-key", accessKey);
+  }
+
+  const response = await fetch(url, { ...options, headers });
+  if (response.status !== 401 || !retryOnAccessDenied) {
+    return response;
+  }
+
+  const nextAccessKey = prompt("Enter Pocket Deck access code");
+  if (!nextAccessKey) return response;
+  savePocketDeckAccessKey(nextAccessKey.trim());
+  return cloudFetch(url, options, false);
+}
+
+function getPocketDeckAccessKey() {
+  if (!canUseLocalStorage()) return "";
+  return localStorage.getItem(ACCESS_KEY_STORAGE_KEY) || "";
+}
+
+function savePocketDeckAccessKey(value) {
+  if (!canUseLocalStorage()) return;
+  localStorage.setItem(ACCESS_KEY_STORAGE_KEY, value);
+}
+
 async function uploadCloudMedia(file, kind, fileName, onProgress) {
   const chunkCount = Math.ceil(file.size / CLOUD_CHUNK_SIZE);
-  const startResponse = await fetch(CLOUD_ENDPOINTS.start, {
+  const startResponse = await cloudFetch(CLOUD_ENDPOINTS.start, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
@@ -503,7 +532,7 @@ async function uploadCloudMedia(file, kind, fileName, onProgress) {
     const start = index * CLOUD_CHUNK_SIZE;
     const end = Math.min(file.size, start + CLOUD_CHUNK_SIZE);
     const data = await arrayBufferToBase64(await file.slice(start, end).arrayBuffer());
-    const chunkResponse = await fetch(CLOUD_ENDPOINTS.chunk, {
+    const chunkResponse = await cloudFetch(CLOUD_ENDPOINTS.chunk, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ id: item.id, index, data })
@@ -541,7 +570,7 @@ async function arrayBufferToBase64(buffer) {
 }
 
 async function listCloudMedia(kind) {
-  const response = await fetch(`${CLOUD_ENDPOINTS.list}?kind=${encodeURIComponent(kind)}`, {
+  const response = await cloudFetch(`${CLOUD_ENDPOINTS.list}?kind=${encodeURIComponent(kind)}`, {
     cache: "no-store"
   });
   if (!response.ok) throw new Error("Cloud list failed");
@@ -550,7 +579,7 @@ async function listCloudMedia(kind) {
 }
 
 async function deleteCloudMedia(id) {
-  const response = await fetch(CLOUD_ENDPOINTS.delete, {
+  const response = await cloudFetch(CLOUD_ENDPOINTS.delete, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ id })
@@ -1287,7 +1316,7 @@ async function getCloudBlob(item) {
 async function downloadCloudBlob(item) {
   const chunks = [];
   for (let index = 0; index < item.chunkCount; index += 1) {
-    const response = await fetch(`${CLOUD_ENDPOINTS.chunkGet}?id=${encodeURIComponent(item.id)}&index=${index}`, {
+    const response = await cloudFetch(`${CLOUD_ENDPOINTS.chunkGet}?id=${encodeURIComponent(item.id)}&index=${index}`, {
       cache: "force-cache"
     });
     if (!response.ok) {
