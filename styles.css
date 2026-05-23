@@ -31,7 +31,7 @@ body {
     linear-gradient(160deg, #f6f2ed 0%, #f8f7f3 58%, #f7f4ef 100%);
   color: var(--text);
   padding: 1.1rem;
-  padding-bottom: 8.4rem;
+  padding-bottom: 12.2rem;
 }
 
 button,
@@ -231,6 +231,10 @@ h3 {
   gap: 0.45rem;
 }
 
+.playlist-create-wide {
+  min-width: min(26rem, 44vw);
+}
+
 .playlist-create-row input {
   min-width: 0;
   min-height: 2.35rem;
@@ -308,6 +312,49 @@ h3 {
   font-size: 0.82rem;
   display: grid;
   place-items: center;
+}
+
+.playlist-hub {
+  min-height: 24rem;
+}
+
+.playlist-hub-list {
+  list-style: none;
+  margin: 0;
+  padding: 0.8rem;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.playlist-hub-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.6rem;
+}
+
+.playlist-hub-button {
+  min-height: 4.1rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--text);
+  padding: 0.75rem 0.85rem;
+  text-align: left;
+}
+
+.playlist-hub-button strong,
+.playlist-hub-button span {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.playlist-hub-button span {
+  margin-top: 0.16rem;
+  color: var(--muted);
+  font-size: 0.84rem;
 }
 
 .filter-nav {
@@ -634,6 +681,7 @@ h3 {
 }
 
 .photo-tile-button {
+  position: relative;
   width: 100%;
   border: 0;
   border-radius: 8px;
@@ -643,6 +691,19 @@ h3 {
   overflow: hidden;
   text-align: left;
   box-shadow: inset 0 0 0 1px var(--line-soft);
+}
+
+.duplicate-badge {
+  position: absolute;
+  left: 0.42rem;
+  top: 0.42rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.66);
+  color: #fff;
+  font-size: 0.68rem;
+  font-style: normal;
+  font-weight: 800;
+  padding: 0.22rem 0.44rem;
 }
 
 .photo-tile-button img {
@@ -745,6 +806,7 @@ h3 {
   place-items: center;
   overflow: hidden;
   cursor: zoom-in;
+  touch-action: none;
 }
 
 .photo-stage img {
@@ -771,6 +833,12 @@ h3 {
   font-weight: 800;
   padding: 0 0.8rem;
   backdrop-filter: blur(12px);
+}
+
+.viewer-button.danger {
+  border-color: rgba(255, 77, 109, 0.4);
+  background: rgba(255, 77, 109, 0.2);
+  color: #fff;
 }
 
 .photo-nav-button {
@@ -806,7 +874,7 @@ h3 {
 }
 
 body.photos-active {
-  padding-bottom: 1.1rem;
+  padding-bottom: 5.8rem;
 }
 
 body.photos-active .player-bar {
@@ -817,7 +885,7 @@ body.photos-active .player-bar {
   position: fixed;
   left: 1.1rem;
   right: 1.1rem;
-  bottom: 1.1rem;
+  bottom: 5.4rem;
   z-index: 3;
   display: grid;
   grid-template-columns: minmax(13rem, 1fr) minmax(0, 1.4fr) minmax(11rem, 1fr);
@@ -825,6 +893,64 @@ body.photos-active .player-bar {
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.88);
   padding: 0.75rem 0.9rem;
+}
+
+.bottom-tabbar {
+  position: fixed;
+  left: 1.1rem;
+  right: 1.1rem;
+  bottom: 1.1rem;
+  z-index: 4;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.35rem;
+  min-height: 3.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.68);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 18px 48px rgba(67, 36, 44, 0.15);
+  backdrop-filter: blur(16px);
+  padding: 0.38rem;
+}
+
+.bottom-tab {
+  border: 0;
+  border-radius: 15px;
+  background: transparent;
+  color: #776f69;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.bottom-tab.is-active {
+  background: rgba(236, 45, 84, 0.1);
+  color: var(--accent);
+}
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.settings-card {
+  border: 1px solid var(--line-soft);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.9);
+  display: grid;
+  gap: 0.7rem;
+  align-content: start;
+  padding: 1rem;
+}
+
+.settings-card p {
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
+.settings-button {
+  border: 0;
 }
 
 .mini-now {
@@ -982,20 +1108,39 @@ input[type="range"] {
   .photo-grid {
     grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr));
   }
+
+  .settings-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 760px) {
   body {
     padding: 0.65rem;
-    padding-bottom: 14.6rem;
+    padding-bottom: 18.2rem;
   }
 
   .player-bar {
     left: 0.65rem;
     right: 0.65rem;
-    bottom: 0.65rem;
+    bottom: 4.9rem;
     grid-template-columns: 1fr;
     gap: 0.65rem;
+  }
+
+  .bottom-tabbar {
+    left: 0.65rem;
+    right: 0.65rem;
+    bottom: 0.65rem;
+  }
+
+  body.photos-active {
+    padding-bottom: 5.4rem;
+  }
+
+  .playlist-create-wide {
+    min-width: 0;
+    width: 100%;
   }
 
   .right-controls {

@@ -1,9 +1,11 @@
 export const SUPPORTED_KINDS = new Set(["audio", "photo"]);
 
 const ROOT_PATH = "/PocketDeck";
+const APP_DATA_PATH = `${ROOT_PATH}/_app`;
 const TEMP_PATH = `${ROOT_PATH}/_uploads`;
 const DEFAULT_AUDIO_PATH = "/Music";
-const DEFAULT_PHOTO_PATH = "/Pictures";
+const DEFAULT_PHOTO_PATH = "/Pictures,/Automatic Upload,/Automatic Folder";
+const PLAYLISTS_FILE_NAME = "playlists.json";
 const AUDIO_EXTENSIONS = new Set(["aac", "flac", "m4a", "mp3", "oga", "ogg", "opus", "wav", "webm"]);
 const PHOTO_EXTENSIONS = new Set(["gif", "heic", "heif", "jpeg", "jpg", "png", "webp"]);
 
@@ -35,6 +37,7 @@ export function cleanMediaMeta(meta) {
     type: meta.type,
     size: meta.size,
     addedAt: meta.addedAt,
+    fingerprint: meta.fingerprint || "",
     chunkCount: meta.chunkCount || 1,
     complete: Boolean(meta.complete)
   };
@@ -75,6 +78,28 @@ export async function listMediaMeta(kind) {
   }
 
   return dedupeById(metas);
+}
+
+export async function readCloudPlaylists() {
+  try {
+    const data = await downloadJson(`${APP_DATA_PATH}/${PLAYLISTS_FILE_NAME}`);
+    return Array.isArray(data?.playlists) ? data.playlists : [];
+  } catch (error) {
+    if (!isMissingFolderError(error)) throw error;
+    return [];
+  }
+}
+
+export async function writeCloudPlaylists(playlists) {
+  await ensureFolder(ROOT_PATH);
+  await ensureFolder(APP_DATA_PATH);
+  await deletePath(`${APP_DATA_PATH}/${PLAYLISTS_FILE_NAME}`);
+  await uploadBytes(
+    APP_DATA_PATH,
+    PLAYLISTS_FILE_NAME,
+    Buffer.from(JSON.stringify({ playlists, updatedAt: Date.now() })),
+    "application/json"
+  );
 }
 
 export async function saveMediaMeta(meta) {
@@ -148,6 +173,7 @@ function pCloudFileToMeta(file, fallbackKind = null) {
     type: file.contenttype || getFallbackType(file.name, kind),
     size: Number(file.size || 0),
     addedAt: Date.parse(file.created || file.modified || "") || Date.now(),
+    fingerprint: file.hash ? String(file.hash) : "",
     chunkCount: 1,
     complete: true
   };

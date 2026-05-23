@@ -59,8 +59,14 @@
             <label class="secondary-button" for="photoFolderInput">Import Folder</label>
             <input id="photoInput" type="file" accept="image/*,.jpg,.jpeg,.png,.gif,.webp,.heic,.heif" multiple>
             <input id="photoFolderInput" type="file" accept="image/*,.jpg,.jpeg,.png,.gif,.webp,.heic,.heif" multiple webkitdirectory>
-            <p>Photos sync with your pCloud pictures folder on every device.</p>
+            <p>Photos sync with your pCloud Pictures and Automatic Upload folders.</p>
             <span id="photoImportStatus" class="import-status" aria-live="polite"></span>
+          </section>
+
+          <section class="playlist-card" aria-label="Photo tools">
+            <h3>Photo Tools</h3>
+            <button id="duplicatePhotosButton" class="ghost-button" type="button">Find Duplicates</button>
+            <span id="photoDuplicateStatus" class="import-status" aria-live="polite"></span>
           </section>
 
           <div class="sidebar-actions">
@@ -68,7 +74,7 @@
           </div>
         </div>
 
-        <p class="sidebar-note">Shared library is available to anyone who can open this Pocket Deck URL.</p>
+        <p class="sidebar-note">Cloud library uses your Pocket Deck access code.</p>
       </aside>
 
       <section id="musicPanel" class="content-panel" aria-label="Music library">
@@ -128,7 +134,62 @@
           <ul id="photoGrid" class="photo-grid" aria-label="Imported photos"></ul>
         </section>
       </section>
+
+      <section id="playlistPanel" class="content-panel" aria-label="Playlists" hidden>
+        <header class="content-header">
+          <div>
+            <p class="eyebrow">Synced Lists</p>
+            <h2>Playlists</h2>
+          </div>
+          <div class="playlist-create-row playlist-create-wide">
+            <input id="playlistHubNameInput" type="text" maxlength="28" placeholder="New playlist name" aria-label="Playlist name">
+            <button id="createPlaylistHubButton" class="playlist-create-button" type="button">Create</button>
+          </div>
+        </header>
+
+        <section class="tracks-panel playlist-hub">
+          <div class="library-head">
+            <span>Available on Mac, iPhone, and Android</span>
+            <span id="playlistSyncLabel">pCloud Sync</span>
+          </div>
+          <ul id="playlistHubList" class="playlist-hub-list" aria-label="Synced playlists"></ul>
+        </section>
+      </section>
+
+      <section id="settingsPanel" class="content-panel" aria-label="Settings" hidden>
+        <header class="content-header">
+          <div>
+            <p class="eyebrow">Pocket Deck</p>
+            <h2>Settings</h2>
+          </div>
+        </header>
+
+        <section class="settings-grid">
+          <div class="settings-card">
+            <h3>Cloud Sync</h3>
+            <p id="syncStatus">Syncing music, photos, and playlists with pCloud.</p>
+            <button id="refreshCloudButton" class="primary-button settings-button" type="button">Refresh Now</button>
+          </div>
+          <div class="settings-card">
+            <h3>Library</h3>
+            <button id="settingsClearButton" class="ghost-button danger" type="button">Clear Music</button>
+            <button id="settingsClearPhotosButton" class="ghost-button danger" type="button">Clear Photos</button>
+          </div>
+          <div class="settings-card">
+            <h3>Access</h3>
+            <p>Use the same Pocket Deck access code on each device.</p>
+            <button id="accessResetButton" class="ghost-button" type="button">Reset Access Code</button>
+          </div>
+        </section>
+      </section>
     </main>
+
+    <nav class="bottom-tabbar" aria-label="Pocket Deck tabs">
+      <button id="bottomMusicTabButton" class="bottom-tab is-active" type="button">Music</button>
+      <button id="bottomPhotosTabButton" class="bottom-tab" type="button">Photos</button>
+      <button id="bottomPlaylistsTabButton" class="bottom-tab" type="button">Playlists</button>
+      <button id="bottomSettingsTabButton" class="bottom-tab" type="button">Settings</button>
+    </nav>
 
     <footer class="player-bar" aria-label="Playback controls">
       <div class="mini-now">
@@ -207,6 +268,7 @@
         <input id="photoZoomRange" type="range" min="1" max="3" step="0.1" value="1" aria-label="Photo zoom">
         <button id="zoomInButton" class="viewer-button" type="button">+</button>
         <button id="fitPhotoButton" class="viewer-button" type="button">Fit</button>
+        <button id="deletePhotoButton" class="viewer-button danger" type="button">Delete</button>
         <button id="hidePhotoUiButton" class="viewer-button" type="button">Hide</button>
       </div>
     </section>

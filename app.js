@@ -14,6 +14,7 @@ const CLOUD_ENDPOINTS = {
   chunkGet: "/.netlify/functions/media-chunk-get",
   delete: "/.netlify/functions/media-delete",
   list: "/.netlify/functions/media-list",
+  playlists: "/.netlify/functions/playlists",
   start: "/.netlify/functions/media-start"
 };
 
@@ -21,12 +22,20 @@ const elements = {
   activeFilterLabel: document.querySelector("#activeFilterLabel"),
   allFilterButton: document.querySelector("#allFilterButton"),
   audio: document.querySelector("#audio"),
+  accessResetButton: document.querySelector("#accessResetButton"),
+  bottomMusicTabButton: document.querySelector("#bottomMusicTabButton"),
+  bottomPhotosTabButton: document.querySelector("#bottomPhotosTabButton"),
+  bottomPlaylistsTabButton: document.querySelector("#bottomPlaylistsTabButton"),
+  bottomSettingsTabButton: document.querySelector("#bottomSettingsTabButton"),
   clearButton: document.querySelector("#clearButton"),
   clearPhotosButton: document.querySelector("#clearPhotosButton"),
   closePhotoButton: document.querySelector("#closePhotoButton"),
+  createPlaylistHubButton: document.querySelector("#createPlaylistHubButton"),
   currentTime: document.querySelector("#currentTime"),
   createPlaylistButton: document.querySelector("#createPlaylistButton"),
+  deletePhotoButton: document.querySelector("#deletePhotoButton"),
   duration: document.querySelector("#duration"),
+  duplicatePhotosButton: document.querySelector("#duplicatePhotosButton"),
   emptyTemplate: document.querySelector("#emptyTemplate"),
   favoriteCurrentButton: document.querySelector("#favoriteCurrentButton"),
   favoritesFilterButton: document.querySelector("#favoritesFilterButton"),
@@ -52,6 +61,7 @@ const elements = {
   photoImportStatus: document.querySelector("#photoImportStatus"),
   photoInput: document.querySelector("#photoInput"),
   photoPanel: document.querySelector("#photoPanel"),
+  photoDuplicateStatus: document.querySelector("#photoDuplicateStatus"),
   photoSearchInput: document.querySelector("#photoSearchInput"),
   photoSidebarPanel: document.querySelector("#photoSidebarPanel"),
   photoSortSelect: document.querySelector("#photoSortSelect"),
@@ -62,6 +72,10 @@ const elements = {
   photoViewerMeta: document.querySelector("#photoViewerMeta"),
   photoViewerTitle: document.querySelector("#photoViewerTitle"),
   photoZoomRange: document.querySelector("#photoZoomRange"),
+  playlistHubList: document.querySelector("#playlistHubList"),
+  playlistHubNameInput: document.querySelector("#playlistHubNameInput"),
+  playlistPanel: document.querySelector("#playlistPanel"),
+  playlistSyncLabel: document.querySelector("#playlistSyncLabel"),
   playlistList: document.querySelector("#playlistList"),
   playlistNameInput: document.querySelector("#playlistNameInput"),
   playButton: document.querySelector("#playButton"),
@@ -72,12 +86,17 @@ const elements = {
   queueHint: document.querySelector("#queueHint"),
   queueList: document.querySelector("#queueList"),
   repeatButton: document.querySelector("#repeatButton"),
+  refreshCloudButton: document.querySelector("#refreshCloudButton"),
   searchInput: document.querySelector("#searchInput"),
+  settingsClearButton: document.querySelector("#settingsClearButton"),
+  settingsClearPhotosButton: document.querySelector("#settingsClearPhotosButton"),
+  settingsPanel: document.querySelector("#settingsPanel"),
   shuffleButton: document.querySelector("#shuffleButton"),
   sleepSelect: document.querySelector("#sleepSelect"),
   sleepStatus: document.querySelector("#sleepStatus"),
   sortSelect: document.querySelector("#sortSelect"),
   speedSelect: document.querySelector("#speedSelect"),
+  syncStatus: document.querySelector("#syncStatus"),
   trackCount: document.querySelector("#trackCount"),
   trackList: document.querySelector("#trackList"),
   volume: document.querySelector("#volume"),
@@ -99,6 +118,9 @@ const state = {
   cloudSyncInProgress: false,
   playlists: [],
   photos: [],
+  photoDuplicateMode: false,
+  photoPinchStartDistance: 0,
+  photoPinchStartZoom: 1,
   photoUiHidden: false,
   photoZoom: 1,
   repeatMode: "off",
@@ -146,25 +168,41 @@ function init() {
 function bindEvents() {
   elements.musicTabButton.addEventListener("click", () => setActiveView("music"));
   elements.photosTabButton.addEventListener("click", () => setActiveView("photos"));
+  elements.bottomMusicTabButton.addEventListener("click", () => setActiveView("music"));
+  elements.bottomPhotosTabButton.addEventListener("click", () => setActiveView("photos"));
+  elements.bottomPlaylistsTabButton.addEventListener("click", () => setActiveView("playlists"));
+  elements.bottomSettingsTabButton.addEventListener("click", () => setActiveView("settings"));
   elements.fileInput.addEventListener("change", handleImport);
   elements.folderInput.addEventListener("change", handleImport);
   elements.photoInput.addEventListener("change", handlePhotoImport);
   elements.photoFolderInput.addEventListener("change", handlePhotoImport);
   elements.photoSearchInput.addEventListener("input", renderPhotos);
   elements.photoSortSelect.addEventListener("change", renderPhotos);
+  elements.duplicatePhotosButton.addEventListener("click", toggleDuplicatePhotoMode);
   elements.clearPhotosButton.addEventListener("click", clearPhotos);
+  elements.settingsClearPhotosButton.addEventListener("click", clearPhotos);
   elements.searchInput.addEventListener("input", renderTracks);
   elements.sortSelect.addEventListener("change", renderTracks);
   elements.allFilterButton.addEventListener("click", () => setFilter("all"));
   elements.favoritesFilterButton.addEventListener("click", () => setFilter("favorites"));
   elements.createPlaylistButton.addEventListener("click", createPlaylist);
+  elements.createPlaylistHubButton.addEventListener("click", createPlaylist);
   elements.playlistNameInput.addEventListener("keydown", event => {
     if (event.key === "Enter") {
       event.preventDefault();
       createPlaylist();
     }
   });
+  elements.playlistHubNameInput.addEventListener("keydown", event => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      createPlaylist();
+    }
+  });
   elements.clearButton.addEventListener("click", clearLibrary);
+  elements.settingsClearButton.addEventListener("click", clearLibrary);
+  elements.refreshCloudButton.addEventListener("click", refreshCloudLibrary);
+  elements.accessResetButton.addEventListener("click", resetPocketDeckAccessCode);
   elements.playButton.addEventListener("click", togglePlayback);
   elements.previousButton.addEventListener("click", playPrevious);
   elements.nextButton.addEventListener("click", playNext);
@@ -216,23 +254,37 @@ function bindEvents() {
   elements.zoomOutButton.addEventListener("click", () => setPhotoZoom(state.photoZoom - 0.25));
   elements.zoomInButton.addEventListener("click", () => setPhotoZoom(state.photoZoom + 0.25));
   elements.fitPhotoButton.addEventListener("click", () => setPhotoZoom(1));
+  elements.deletePhotoButton.addEventListener("click", deleteSelectedPhoto);
   elements.hidePhotoUiButton.addEventListener("click", () => setPhotoViewerUiHidden(true));
   elements.photoZoomRange.addEventListener("input", () => setPhotoZoom(Number(elements.photoZoomRange.value)));
   elements.photoStage.addEventListener("click", () => setPhotoViewerUiHidden(!state.photoUiHidden));
+  elements.photoStage.addEventListener("wheel", handlePhotoWheel, { passive: false });
+  elements.photoStage.addEventListener("touchstart", handlePhotoTouchStart, { passive: false });
+  elements.photoStage.addEventListener("touchmove", handlePhotoTouchMove, { passive: false });
   window.addEventListener("keydown", handleKeyboardShortcuts);
 }
 
 function setActiveView(view) {
   state.activeView = view;
+  const isMusic = view === "music";
   const isPhotos = view === "photos";
+  const isPlaylists = view === "playlists";
+  const isSettings = view === "settings";
 
-  elements.musicTabButton.classList.toggle("is-active", !isPhotos);
+  elements.musicTabButton.classList.toggle("is-active", isMusic);
   elements.photosTabButton.classList.toggle("is-active", isPhotos);
-  elements.musicSidebarPanel.hidden = isPhotos;
+  elements.bottomMusicTabButton.classList.toggle("is-active", isMusic);
+  elements.bottomPhotosTabButton.classList.toggle("is-active", isPhotos);
+  elements.bottomPlaylistsTabButton.classList.toggle("is-active", isPlaylists);
+  elements.bottomSettingsTabButton.classList.toggle("is-active", isSettings);
+  elements.musicSidebarPanel.hidden = !isMusic && !isPlaylists;
   elements.photoSidebarPanel.hidden = !isPhotos;
-  elements.musicPanel.hidden = isPhotos;
+  elements.musicPanel.hidden = !isMusic;
   elements.photoPanel.hidden = !isPhotos;
+  elements.playlistPanel.hidden = !isPlaylists;
+  elements.settingsPanel.hidden = !isSettings;
   document.body.classList.toggle("photos-active", isPhotos);
+  document.body.classList.toggle("settings-active", isSettings);
 }
 
 async function loadTracks() {
@@ -362,11 +414,13 @@ async function loadPhotos() {
 async function refreshCloudLibrary() {
   if (state.cloudSyncInProgress) return;
   state.cloudSyncInProgress = true;
+  updateSyncStatus("Syncing with pCloud...");
 
   try {
-    const [cloudTracks, cloudPhotos] = await Promise.all([
+    const [cloudTracks, cloudPhotos, cloudPlaylists] = await Promise.all([
       listCloudMedia("audio"),
-      listCloudMedia("photo")
+      listCloudMedia("photo"),
+      listCloudPlaylists()
     ]);
 
     const localTracks = state.tracks.filter(track => !track.cloud && track.blob);
@@ -375,10 +429,17 @@ async function refreshCloudLibrary() {
     state.cloudSyncAvailable = true;
     state.tracks = mergeCloudAndLocal(cloudTracks.map(normalizeCloudTrack), localTracks);
     state.photos = mergeCloudAndLocal(cloudPhotos.map(normalizeCloudPhoto), localPhotos);
+    if (cloudPlaylists.length || !state.playlists.length) {
+      state.playlists = cloudPlaylists;
+      savePlaylists({ syncCloud: false });
+    } else {
+      syncPlaylistsToCloud();
+    }
     prunePlaylistTracks();
     renderPlaylists();
     renderTracks();
     renderPhotos();
+    updateSyncStatus(`Synced ${state.tracks.length} songs, ${state.photos.length} photos, ${state.playlists.length} playlists`);
 
     if (!state.tracks.length) {
       resetNowPlaying();
@@ -388,6 +449,7 @@ async function refreshCloudLibrary() {
     }
   } catch {
     state.cloudSyncAvailable = false;
+    updateSyncStatus("Cloud sync needs your access code or pCloud settings.");
   } finally {
     state.cloudSyncInProgress = false;
   }
@@ -508,6 +570,12 @@ function savePocketDeckAccessKey(value) {
   localStorage.setItem(ACCESS_KEY_STORAGE_KEY, value);
 }
 
+function resetPocketDeckAccessCode() {
+  if (!canUseLocalStorage()) return;
+  localStorage.removeItem(ACCESS_KEY_STORAGE_KEY);
+  updateSyncStatus("Access code reset. Refresh or sync to enter it again.");
+}
+
 async function uploadCloudMedia(file, kind, fileName, onProgress) {
   const chunkCount = Math.ceil(file.size / CLOUD_CHUNK_SIZE);
   const startResponse = await cloudFetch(CLOUD_ENDPOINTS.start, {
@@ -582,6 +650,25 @@ async function listCloudMedia(kind) {
   return Array.isArray(data.items) ? data.items : [];
 }
 
+async function listCloudPlaylists() {
+  const response = await cloudFetch(CLOUD_ENDPOINTS.playlists, {
+    cache: "no-store"
+  });
+  if (!response.ok) throw new Error("Cloud playlists failed");
+  const data = await response.json();
+  return normalizePlaylists(data.playlists);
+}
+
+async function saveCloudPlaylists(playlists) {
+  const response = await cloudFetch(CLOUD_ENDPOINTS.playlists, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ playlists: normalizePlaylists(playlists) })
+  });
+  if (!response.ok) throw new Error("Cloud playlist save failed");
+  updateSyncStatus("Playlists synced to pCloud");
+}
+
 async function deleteCloudMedia(id) {
   const response = await cloudFetch(CLOUD_ENDPOINTS.delete, {
     method: "POST",
@@ -592,10 +679,20 @@ async function deleteCloudMedia(id) {
   revokeCloudObjectUrl(id);
 }
 
+function updateSyncStatus(message) {
+  if (elements.syncStatus) elements.syncStatus.textContent = message;
+  if (elements.playlistSyncLabel) elements.playlistSyncLabel.textContent = message.includes("needs") ? "Needs setup" : "pCloud Sync";
+}
+
 function renderPhotos() {
   const query = elements.photoSearchInput.value.trim().toLowerCase();
   const sort = elements.photoSortSelect.value;
+  const duplicateIds = getDuplicatePhotoIds();
   let photos = [...state.photos];
+
+  if (state.photoDuplicateMode) {
+    photos = photos.filter(photo => duplicateIds.has(photo.id));
+  }
 
   if (query) {
     photos = photos.filter(photo => {
@@ -612,6 +709,7 @@ function renderPhotos() {
   state.filteredPhotos = photos;
   elements.photoGrid.innerHTML = "";
   elements.photoCount.textContent = `${photos.length} shown · ${state.photos.length} total`;
+  updateDuplicatePhotoStatus(duplicateIds.size);
 
   if (!photos.length) {
     elements.photoGrid.append(elements.photoEmptyTemplate.content.cloneNode(true));
@@ -620,7 +718,7 @@ function renderPhotos() {
 
   photos.forEach(photo => {
     const item = document.createElement("li");
-    item.className = "photo-tile";
+    item.className = `photo-tile${duplicateIds.has(photo.id) ? " is-duplicate" : ""}`;
 
     const button = document.createElement("button");
     button.type = "button";
@@ -642,9 +740,47 @@ function renderPhotos() {
     name.textContent = photo.name;
 
     button.append(image, name);
+    if (duplicateIds.has(photo.id)) {
+      const badge = document.createElement("em");
+      badge.className = "duplicate-badge";
+      badge.textContent = "Duplicate";
+      button.append(badge);
+    }
     item.append(button);
     elements.photoGrid.append(item);
   });
+}
+
+function toggleDuplicatePhotoMode() {
+  state.photoDuplicateMode = !state.photoDuplicateMode;
+  renderPhotos();
+}
+
+function updateDuplicatePhotoStatus(duplicateCount) {
+  elements.duplicatePhotosButton.textContent = state.photoDuplicateMode ? "Show All Photos" : "Find Duplicates";
+  if (!duplicateCount) {
+    elements.photoDuplicateStatus.textContent = "No likely duplicates found.";
+    return;
+  }
+  elements.photoDuplicateStatus.textContent = `${duplicateCount} likely duplicate photo${duplicateCount === 1 ? "" : "s"} found.`;
+}
+
+function getDuplicatePhotoIds() {
+  const groups = new Map();
+
+  state.photos.forEach(photo => {
+    const key = getPhotoDuplicateKey(photo);
+    if (!key) return;
+    groups.set(key, [...(groups.get(key) || []), photo.id]);
+  });
+
+  return new Set([...groups.values()].filter(ids => ids.length > 1).flat());
+}
+
+function getPhotoDuplicateKey(photo) {
+  if (photo.fingerprint) return `hash-${photo.fingerprint}`;
+  if (photo.fileName && photo.size) return `name-size-${photo.fileName.toLowerCase()}-${photo.size}`;
+  return photo.size ? `size-${photo.size}` : "";
 }
 
 function renderTracks() {
@@ -999,24 +1135,37 @@ function loadPlaylists() {
   memoryPlaylists = clonePlaylists(state.playlists);
 }
 
-function savePlaylists() {
+function savePlaylists(options = {}) {
+  const { syncCloud = true } = options;
   memoryPlaylists = clonePlaylists(state.playlists);
-  if (!canUseLocalStorage()) return;
-  try {
-    localStorage.setItem(PLAYLISTS_STORAGE_KEY, JSON.stringify(state.playlists));
-  } catch {
-    // Storage might be unavailable in restricted browser contexts.
+  if (canUseLocalStorage()) {
+    try {
+      localStorage.setItem(PLAYLISTS_STORAGE_KEY, JSON.stringify(state.playlists));
+    } catch {
+      // Storage might be unavailable in restricted browser contexts.
+    }
   }
+  if (syncCloud) {
+    syncPlaylistsToCloud();
+  }
+}
+
+function syncPlaylistsToCloud() {
+  saveCloudPlaylists(state.playlists).catch(() => {
+    updateSyncStatus("Playlist sync failed. Check access code.");
+  });
 }
 
 function renderPlaylists() {
   elements.playlistList.innerHTML = "";
+  elements.playlistHubList.innerHTML = "";
 
   if (!state.playlists.length) {
     const emptyRow = document.createElement("li");
     emptyRow.className = "playlist-empty";
     emptyRow.textContent = "No playlists yet";
     elements.playlistList.append(emptyRow);
+    elements.playlistHubList.append(emptyRow.cloneNode(true));
     return;
   }
 
@@ -1049,11 +1198,35 @@ function renderPlaylists() {
 
     row.append(filterButton, deleteButton);
     elements.playlistList.append(row);
+
+    const hubRow = document.createElement("li");
+    hubRow.className = "playlist-hub-row";
+
+    const hubButton = document.createElement("button");
+    hubButton.type = "button";
+    hubButton.className = "playlist-hub-button";
+    hubButton.innerHTML = `<strong>${escapeHtml(playlist.name)}</strong><span>${playlist.trackIds.length} song${playlist.trackIds.length === 1 ? "" : "s"}</span>`;
+    hubButton.addEventListener("click", () => {
+      state.activePlaylistId = playlist.id;
+      state.filterMode = "all";
+      setActiveView("music");
+      renderPlaylists();
+      renderTracks();
+    });
+
+    const hubDeleteButton = document.createElement("button");
+    hubDeleteButton.type = "button";
+    hubDeleteButton.className = "playlist-delete-button";
+    hubDeleteButton.textContent = "Delete";
+    hubDeleteButton.addEventListener("click", () => deletePlaylist(playlist.id));
+
+    hubRow.append(hubButton, hubDeleteButton);
+    elements.playlistHubList.append(hubRow);
   });
 }
 
 function createPlaylist() {
-  const name = elements.playlistNameInput.value.trim();
+  const name = (elements.playlistNameInput.value.trim() || elements.playlistHubNameInput.value.trim()).slice(0, 28);
   if (!name) return;
 
   const alreadyExists = state.playlists.some(playlist => playlist.name.toLowerCase() === name.toLowerCase());
@@ -1070,6 +1243,7 @@ function createPlaylist() {
   });
 
   elements.playlistNameInput.value = "";
+  elements.playlistHubNameInput.value = "";
   savePlaylists();
   renderPlaylists();
   renderTracks();
@@ -1251,6 +1425,42 @@ function showRelativePhoto(direction) {
   updatePhotoViewer();
 }
 
+async function deleteSelectedPhoto() {
+  const photo = state.photos.find(item => item.id === state.selectedPhotoId);
+  if (!photo) return;
+
+  const confirmed = confirm(`Delete "${photo.name}" from ${photo.cloud ? "pCloud on every device" : "this browser"}?`);
+  if (!confirmed) return;
+
+  const photos = state.filteredPhotos.length ? state.filteredPhotos : state.photos;
+  const currentIndex = Math.max(0, photos.findIndex(item => item.id === photo.id));
+
+  if (photo.cloud) {
+    await deleteCloudMedia(photo.id);
+  } else {
+    await deletePhoto(photo.id);
+    revokePhotoUrl(photo.id);
+  }
+
+  state.photos = state.photos.filter(item => item.id !== photo.id);
+  state.filteredPhotos = state.filteredPhotos.filter(item => item.id !== photo.id);
+  revokeCloudObjectUrl(photo.id);
+
+  const nextPhotos = state.filteredPhotos.length ? state.filteredPhotos : state.photos;
+  if (!nextPhotos.length) {
+    closePhotoViewer();
+    renderPhotos();
+    updatePhotoImportStatus("Deleted photo");
+    return;
+  }
+
+  state.selectedPhotoId = nextPhotos[Math.min(currentIndex, nextPhotos.length - 1)].id;
+  state.photoZoom = 1;
+  renderPhotos();
+  updatePhotoViewer();
+  updatePhotoImportStatus("Deleted photo");
+}
+
 function setPhotoZoom(value) {
   state.photoZoom = Math.min(3, Math.max(1, Number(value) || 1));
   updatePhotoViewer();
@@ -1259,6 +1469,32 @@ function setPhotoZoom(value) {
 function setPhotoViewerUiHidden(hidden) {
   state.photoUiHidden = hidden;
   updatePhotoViewer();
+}
+
+function handlePhotoWheel(event) {
+  if (elements.photoViewer.hidden) return;
+  event.preventDefault();
+  const step = event.deltaY < 0 ? 0.15 : -0.15;
+  setPhotoZoom(state.photoZoom + step);
+}
+
+function handlePhotoTouchStart(event) {
+  if (event.touches.length !== 2) return;
+  event.preventDefault();
+  state.photoPinchStartDistance = getTouchDistance(event.touches);
+  state.photoPinchStartZoom = state.photoZoom;
+}
+
+function handlePhotoTouchMove(event) {
+  if (event.touches.length !== 2 || !state.photoPinchStartDistance) return;
+  event.preventDefault();
+  const distance = getTouchDistance(event.touches);
+  setPhotoZoom(state.photoPinchStartZoom * (distance / state.photoPinchStartDistance));
+}
+
+function getTouchDistance(touches) {
+  const [first, second] = touches;
+  return Math.hypot(first.clientX - second.clientX, first.clientY - second.clientY);
 }
 
 function handleKeyboardShortcuts(event) {
@@ -1278,6 +1514,8 @@ function handleKeyboardShortcuts(event) {
     setPhotoZoom(state.photoZoom + 0.25);
   } else if (event.key === "-") {
     setPhotoZoom(state.photoZoom - 0.25);
+  } else if (event.key === "Delete" || event.key === "Backspace") {
+    deleteSelectedPhoto();
   }
 }
 
@@ -1674,6 +1912,14 @@ async function putPhoto(photo) {
   return withStore("readwrite", store => store.put(photo), PHOTO_STORE_NAME);
 }
 
+function deletePhoto(photoId) {
+  if (!("indexedDB" in window)) {
+    memoryPhotos = memoryPhotos.filter(item => item.id !== photoId);
+    return Promise.resolve();
+  }
+  return withStore("readwrite", store => store.delete(photoId), PHOTO_STORE_NAME);
+}
+
 function clearPhotoStore() {
   if (!("indexedDB" in window)) {
     memoryPhotos = [];
@@ -1692,6 +1938,16 @@ function clearTracks() {
 
 function cleanTitle(fileName) {
   return fileName.replace(/\.[^/.]+$/, "").replace(/[_-]+/g, " ").trim() || fileName;
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, character => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "\"": "&quot;",
+    "'": "&#39;"
+  })[character]);
 }
 
 function formatBytes(bytes) {
