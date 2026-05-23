@@ -281,8 +281,17 @@ function renderTracks() {
     });
 
     const playlistControl = createPlaylistControl(track);
+    const deleteButton = document.createElement("button");
+    deleteButton.type = "button";
+    deleteButton.className = "track-delete-button";
+    deleteButton.textContent = "Delete";
+    deleteButton.title = "Remove this imported song";
+    deleteButton.addEventListener("click", event => {
+      event.stopPropagation();
+      deleteTrackFromLibrary(track.id);
+    });
 
-    item.append(mainButton, playlistControl, favoriteButton);
+    item.append(mainButton, playlistControl, favoriteButton, deleteButton);
     elements.trackList.append(item);
   });
 
@@ -660,6 +669,53 @@ function removeTrackFromPlaylist(trackId, playlistId) {
   renderTracks();
 }
 
+async function deleteTrackFromLibrary(trackId) {
+  const track = state.tracks.find(item => item.id === trackId);
+  if (!track) return;
+
+  const confirmed = confirm(`Remove "${track.name}" from Pocket Deck on this device?`);
+  if (!confirmed) return;
+
+  const wasCurrentTrack = state.currentId === trackId;
+  const currentTrackIndex = Math.max(0, state.filteredTracks.findIndex(item => item.id === trackId));
+  await deleteTrack(trackId);
+  state.tracks = state.tracks.filter(item => item.id !== trackId);
+  state.filteredTracks = state.filteredTracks.filter(item => item.id !== trackId);
+
+  let playlistsChanged = false;
+  state.playlists.forEach(playlist => {
+    const before = playlist.trackIds.length;
+    playlist.trackIds = playlist.trackIds.filter(id => id !== trackId);
+    if (playlist.trackIds.length !== before) {
+      playlistsChanged = true;
+    }
+  });
+
+  if (playlistsChanged) {
+    savePlaylists();
+  }
+
+  if (wasCurrentTrack) {
+    elements.audio.pause();
+    elements.audio.removeAttribute("src");
+    elements.audio.load();
+    if (state.currentUrl) URL.revokeObjectURL(state.currentUrl);
+    state.currentId = null;
+    state.currentUrl = null;
+    resetNowPlaying();
+
+    const nextTracks = getBaseLibrary();
+    const nextTrack = nextTracks[Math.min(currentTrackIndex, nextTracks.length - 1)];
+    if (nextTrack) {
+      selectTrack(nextTrack.id, false);
+    }
+  }
+
+  renderPlaylists();
+  renderTracks();
+  renderQueue();
+}
+
 function prunePlaylistTracks() {
   const existingTrackIds = new Set(state.tracks.map(track => track.id));
   let changed = false;
@@ -920,6 +976,14 @@ async function putTrack(track) {
     return track;
   }
   return withStore("readwrite", store => store.put(track));
+}
+
+function deleteTrack(trackId) {
+  if (!("indexedDB" in window)) {
+    memoryTracks = memoryTracks.filter(item => item.id !== trackId);
+    return Promise.resolve();
+  }
+  return withStore("readwrite", store => store.delete(trackId));
 }
 
 function clearTracks() {

@@ -391,7 +391,7 @@ h3 {
 
 .track-item {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(4.8rem, 6.2rem) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(4.8rem, 6.2rem) auto auto;
   gap: 0.45rem;
   min-width: 0;
 }
@@ -451,7 +451,8 @@ h3 {
   font-size: 0.78rem;
 }
 
-.favorite-button {
+.favorite-button,
+.track-delete-button {
   min-width: 5.2rem;
   min-height: 3.5rem;
   border: 1px solid var(--line-soft);
@@ -460,6 +461,10 @@ h3 {
   color: #837972;
   font-size: 0.82rem;
   font-weight: 700;
+}
+
+.track-delete-button {
+  color: #bf1f41;
 }
 
 .playlist-add-select,
@@ -744,6 +749,7 @@ input[type="range"] {
 
   .playlist-add-select,
   .playlist-remove-button,
+  .track-delete-button,
   .favorite-button {
     min-height: 2.55rem;
     width: 100%;
