@@ -742,6 +742,24 @@ h3 {
   padding: 1rem;
 }
 
+.photo-load-more {
+  grid-column: 1 / -1;
+  display: grid;
+  place-items: center;
+  padding: 0.8rem;
+}
+
+.photo-load-more button {
+  min-height: 2.6rem;
+  border: 1px solid rgba(236, 45, 84, 0.24);
+  border-radius: 999px;
+  background: rgba(236, 45, 84, 0.08);
+  color: var(--accent);
+  font-size: 0.9rem;
+  font-weight: 800;
+  padding: 0 1rem;
+}
+
 .photo-empty-state strong {
   color: #46403b;
   font-size: 0.95rem;

@@ -9,6 +9,7 @@ const AUDIO_EXTENSIONS = new Set(["aac", "flac", "m4a", "mp3", "oga", "ogg", "op
 const PHOTO_EXTENSIONS = new Set(["gif", "heic", "heif", "jpeg", "jpg", "png", "webp"]);
 const CLOUD_CHUNK_SIZE = 1_500_000;
 const CLOUD_SYNC_INTERVAL_MS = 45000;
+const PHOTO_RENDER_BATCH = 240;
 const CLOUD_ENDPOINTS = {
   chunk: "/.netlify/functions/media-chunk",
   chunkGet: "/.netlify/functions/media-chunk-get",
@@ -121,6 +122,7 @@ const state = {
   photoDuplicateMode: false,
   photoPinchStartDistance: 0,
   photoPinchStartZoom: 1,
+  photoRenderLimit: PHOTO_RENDER_BATCH,
   photoUiHidden: false,
   photoZoom: 1,
   repeatMode: "off",
@@ -176,8 +178,8 @@ function bindEvents() {
   elements.folderInput.addEventListener("change", handleImport);
   elements.photoInput.addEventListener("change", handlePhotoImport);
   elements.photoFolderInput.addEventListener("change", handlePhotoImport);
-  elements.photoSearchInput.addEventListener("input", renderPhotos);
-  elements.photoSortSelect.addEventListener("change", renderPhotos);
+  elements.photoSearchInput.addEventListener("input", resetPhotoRenderLimit);
+  elements.photoSortSelect.addEventListener("change", resetPhotoRenderLimit);
   elements.duplicatePhotosButton.addEventListener("click", toggleDuplicatePhotoMode);
   elements.clearPhotosButton.addEventListener("click", clearPhotos);
   elements.settingsClearPhotosButton.addEventListener("click", clearPhotos);
@@ -708,7 +710,8 @@ function renderPhotos() {
 
   state.filteredPhotos = photos;
   elements.photoGrid.innerHTML = "";
-  elements.photoCount.textContent = `${photos.length} shown · ${state.photos.length} total`;
+  const visiblePhotos = photos.slice(0, state.photoRenderLimit);
+  elements.photoCount.textContent = `${Math.min(visiblePhotos.length, photos.length)} shown · ${state.photos.length} total`;
   updateDuplicatePhotoStatus(duplicateIds.size);
 
   if (!photos.length) {
@@ -716,7 +719,7 @@ function renderPhotos() {
     return;
   }
 
-  photos.forEach(photo => {
+  visiblePhotos.forEach(photo => {
     const item = document.createElement("li");
     item.className = `photo-tile${duplicateIds.has(photo.id) ? " is-duplicate" : ""}`;
 
@@ -749,10 +752,30 @@ function renderPhotos() {
     item.append(button);
     elements.photoGrid.append(item);
   });
+
+  if (visiblePhotos.length < photos.length) {
+    const loadMoreItem = document.createElement("li");
+    loadMoreItem.className = "photo-load-more";
+    const loadMoreButton = document.createElement("button");
+    loadMoreButton.type = "button";
+    loadMoreButton.textContent = `Show ${Math.min(PHOTO_RENDER_BATCH, photos.length - visiblePhotos.length)} more`;
+    loadMoreButton.addEventListener("click", () => {
+      state.photoRenderLimit += PHOTO_RENDER_BATCH;
+      renderPhotos();
+    });
+    loadMoreItem.append(loadMoreButton);
+    elements.photoGrid.append(loadMoreItem);
+  }
 }
 
 function toggleDuplicatePhotoMode() {
   state.photoDuplicateMode = !state.photoDuplicateMode;
+  state.photoRenderLimit = PHOTO_RENDER_BATCH;
+  renderPhotos();
+}
+
+function resetPhotoRenderLimit() {
+  state.photoRenderLimit = PHOTO_RENDER_BATCH;
   renderPhotos();
 }
 
