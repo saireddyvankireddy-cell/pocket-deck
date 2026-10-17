@@ -30,7 +30,7 @@ export class PhotoLibrary {
     this.nameMatchStamp = ''; this.autoLabeling = false; this.syncing = false; this.restoring = false; this.cloudError = ''; this.restoreError = ''; this.syncPromise = null; this.writeJobs = new Map(); this.indexing = false; this.stop = false; this.syncRetryDelay = 8000; this.syncRetryTimer = null; this.autoResuming = false; this.lastIndexAttempt = 0;
     for (const view of ['library', 'favorites', 'albums', 'people']) $(view + 'Section').onclick = () => { this.view = view; this.focus = null; this.render(); };
     this.wireFavoriteRetry();
-    $('backCollections').onclick = () => { this.focus = null; this.render(); };
+    $('backCollections').onclick = () => { this.focus = null; this.render(); window.scrollTo({top:0,behavior:'smooth'}); };
     $('newAlbum').onclick = async () => {
       const name = await this.askName('Album name'); if (!name?.trim()) return;
       this.change({ type: 'album', albumId: uuid(), name: name.trim().slice(0, 80) }); this.view = 'albums'; this.focus = null; this.render();
@@ -561,8 +561,7 @@ export class PhotoLibrary {
       const card = document.createElement('div'); const button = document.createElement('button'); button.className = 'collection-card';
       if (members.length) { const image = document.createElement('img'); image.alt = collection.name; if(collection.person){const frame=document.createElement('div');frame.className='person-face-preview';frame.append(image);this.facePreview(collection.person,members,existing,image);button.append(frame);}else{this.loadTile(existing.get(members[0]), image);button.append(image);} }
       const label = document.createElement('strong'); label.textContent = (collection.smart?'✦ ':'')+collection.name; const count = document.createElement('span'); count.textContent = `${members.length} ${members.length===1?'photo':'photos'}`; button.append(label,count);if(collection.smart){const rule=document.createElement('span');rule.textContent='Smart · '+collection.query;button.append(rule);}
-      if (this.view === 'albums' && !collection.virtual) { const hide = document.createElement('button'); hide.textContent = 'Hide'; hide.setAttribute('aria-label','Hide album '+collection.name); hide.onclick = () => { this.setAlbumHidden(collection.id, true); $('indexStatus').textContent = 'Album hidden. It stays in pCloud; restore it in Settings \u2192 Hidden.'; }; card.append(hide); const remove = document.createElement('button'); remove.textContent = 'Delete'; remove.setAttribute('aria-label','Delete album '+collection.name); remove.onclick = () => this.deleteAlbum(collection); card.append(remove); }
-      button.onclick = () => { if (collection.virtual) { this.view = 'library'; this.focus = null; this.filters = { ids: collection.photos }; this.filterTitle = collection.name; this.render(); window.scrollTo({ top: 0, behavior: 'smooth' }); } else { this.focus = collection.id; this.render(); } }; card.append(button);
+      button.onclick = () => { if (collection.virtual) { this.view = 'library'; this.focus = null; this.filters = { ids: collection.photos }; this.filterTitle = collection.name; this.render(); window.scrollTo({ top: 0, behavior: 'smooth' }); } else { this.focus = collection.id; this.render(); window.scrollTo({ top: 0, behavior: 'smooth' }); } }; card.append(button);
       if (this.view === 'people') { const rename = document.createElement('button'); rename.textContent = collection.person.name ? 'Rename person' : 'Name person'; rename.setAttribute('aria-label',rename.textContent+(collection.person.name?' '+collection.person.name:'')); rename.onclick = () => this.namePerson(collection.person); card.append(rename); }
       $('collectionCards').append(card);
     }

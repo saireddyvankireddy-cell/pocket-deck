@@ -93,12 +93,9 @@ if(window.SAI_PHOTOS_ONLY){
 }
 setupSettings(photoLibrary);
 $('settingsLibraryControls').append($('photoControls'));if(window.SAI_PHOTOS_ONLY)$('settingsAccountPage').append($('connectToken'),$('disconnect'));$('photoControls').hidden=false;$('photoControls').open=true;
-if(!window.SAI_PHOTOS_ONLY){const controls=$('photoControlContent');for(const element of [$('choosePhotoFolder').closest('.music-folder'),$('photoFolderSummary'),$('indexModeWrap'),$('indexPhotos').closest('.photo-actions'),$('indexStatus'),$('visualIndexStatus')])if(element)controls.append(element);}
+const controls=$('photoControlContent');for(const element of [$('choosePhotoFolder').closest('.music-folder'),$('photoFolderSummary'),$('indexModeWrap'),$('indexPhotos').closest('.photo-actions'),$('indexStatus'),$('visualIndexStatus')])if(element)controls.append(element);
 const gallerySelection=new GallerySelection({change:()=>{const count=gallerySelection.selected.size;if(window.SAI_PHOTOS_ONLY)$('photoNavigation').classList.toggle('has-selection',gallerySelection.mode||count>0);$('selectionToolbar').hidden=!gallerySelection.mode;$('selectPhotos').textContent=gallerySelection.mode?'Done':'Select';$('selectedPhotoCount').textContent=count+' selected';$('deleteSelectedPhotos').disabled=!count||gallerySelection.busy;const albumButton=document.getElementById('bulkAddToAlbum');if(albumButton)albumButton.disabled=!count||gallerySelection.busy;$('cleanupSelection').textContent=count+' selected';$('deleteCleanupSelection').disabled=!count||photoLibrary.cleanup.busy;},deleteSelected:()=>photoLibrary.cleanup.deleteSelection()});
 photoLibrary.selection=gallerySelection;photoLibrary.cleanup.selected=gallerySelection.selected;gallerySelection.attach($('photoGrid'));gallerySelection.attach($('cleanupGroups'));
-const navAi=document.createElement('button');navAi.id='navAi';navAi.setAttribute('aria-label','AI assistant');navAi.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.2l1.9 5.3 5.3 1.9-5.3 1.9L12 17.6l-1.9-5.3-5.3-1.9 5.3-1.9Z"/><path d="M18.5 15.5l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7Z"/></svg><span class="nav-label">AI</span>';
-if(window.SAI_PHOTOS_ONLY){$('photoNavigation').insertBefore(navAi,$('navCleanup'));}else{const tabsNav=document.querySelector('.tabs');if(tabsNav)tabsNav.append(navAi);}
-navAi.onclick=()=>{gallerySelection.mode=false;gallerySelection.selected.clear();gallerySelection.refresh();setTab('ai');window.scrollTo({top:0,behavior:'smooth'});};
 $('selectPhotos').onclick=()=>gallerySelection.toggle();$('selectLoadedPhotos').onclick=()=>gallerySelection.selectLoaded();$('clearSelectedPhotos').onclick=()=>gallerySelection.clear();$('deleteSelectedPhotos').onclick=async()=>{gallerySelection.busy=true;gallerySelection.refresh();try{await photoLibrary.cleanup.deleteSelection();}finally{gallerySelection.busy=false;gallerySelection.refresh();}};
 function toast(message){let el=document.getElementById('saiToast');if(!el){el=document.createElement('div');el.id='saiToast';document.body.append(el);}el.textContent=message;el.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.remove('show'),4200);}
 window.addEventListener('sai-mirror-cleared',()=>{try{for(const url of musicPlayer.cachedURLs?.values?.()||[])URL.revokeObjectURL(url);musicPlayer.cachedURLs?.clear?.();musicPlayer.downloads?.clear?.();}catch{}render();});
@@ -107,10 +104,11 @@ updateAiStatusPill();
 async function bulkTransfer(action){const ids=[...gallerySelection.selected];if(!ids.length)return;const target=await openTransferPicker(action);if(!target)return;const account=photoLibrary.account;const photos=state.photo.filter(photo=>ids.includes(photo.id));if(!photos.length)return;let done=0,failed=0;const movedIds=[];gallerySelection.busy=true;gallerySelection.refresh();try{for(let offset=0;offset<photos.length;offset+=25){if(photoLibrary.account!==account)return;toast(`${action==='move'?'Moving':'Copying'} ${offset+1}–${Math.min(offset+25,photos.length)} of ${photos.length}…`);const result=await api('photos-transfer',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({confirmed:true,action,targetFolderId:target.id,items:photos.slice(offset,offset+25).map(photo=>({id:photo.id,fileName:photo.fileName}))})});const rows=result.results||[];for(const row of rows){if(row.error){failed++;continue;}done++;if(action==='move'&&row.moved){movedIds.push(row.id);photoLibrary.onDelete(row.id);}}}if(movedIds.length)photoLibrary.render();toast(`${action==='move'?'Moved':'Copied'} ${done} photo${done===1?'':'s'} to ${target.name}${failed?' · '+failed+' failed':''}.`);}catch(error){toast(`${action==='move'?'Move':'Copy'} could not finish: ${error.message||'check your connection and retry'}`);}finally{gallerySelection.busy=false;gallerySelection.refresh();}}
 if($('copySelectedPhotos'))$('copySelectedPhotos').onclick=()=>bulkTransfer('copy');
 if($('moveSelectedPhotos'))$('moveSelectedPhotos').onclick=()=>bulkTransfer('move');
+const openSearchView=()=>{if($('search').hidden){const nav=$('navSearch');if(nav)nav.click();}};
 const enteGallery=setupEnteGallery(photoLibrary);
 const assistant=(()=>{
-  const log=$('aiChatLog'),form=$('aiAskForm'),input=$('aiAskInput'),status=$('aiAnswerStatus'),chips=$('aiQuickChips');
-  if(!log||!form)return {open(){}};
+  const log=$('aiChatLog'),input=$('search'),status=$('aiAnswerStatus'),chips=$('aiQuickChips');
+  if(!log||!input)return {open(){},ask:async()=>{}};
   let historyShown=false;
   const scroll=()=>{log.scrollTop=log.scrollHeight;};
   function bubble(role,text){const row=document.createElement('div');row.className='ai-bubble '+role;const body=document.createElement('p');body.textContent=text;row.append(body);log.append(row);scroll();return row;}
@@ -136,7 +134,7 @@ const assistant=(()=>{
   async function cloudPolish(row,intent,photos,songs){const settings=photoLibrary.meta.aiSettings;if(!settings||settings.privacy!=='cloud')return;if(['help','greeting','sleep','sleep-off','stop','index','index-status','album'].includes(intent.kind))return;const provider=providerById(settings.provider);let key='';try{key=localStorage.getItem(keyStorageId(settings.provider))||'';}catch{}if(!provider||!key||!settings.model){status.textContent='Cloud-enhanced answers are on, but no provider key or model is saved. Open Settings → AI.';return;}status.textContent='Asking '+settings.model+' on '+provider.name+'…';const general=intent.kind==='general';const system=general?'You are the Sai Photos assistant on the user’s phone. Today is '+new Date().toDateString()+'. Answer the user’s general question helpfully in at most four short sentences. Be accurate; if you are unsure, say so.':('You are the Sai Photos assistant on the user’s phone. Today is '+new Date().toDateString()+'. Answer in at most three short sentences using only the facts provided; never invent files.');const userContent=general?(intent.raw||intent.terms.join(' ')):factsDigest(intent,photos,songs);try{const reply=await chat(provider,key,settings.model,[{role:'system',content:system},{role:'user',content:userContent}],{webSearch:Boolean(settings.webSearch)&&provider.id==='gemini',maxTokens:512});const cloud=document.createElement('p');cloud.className='ai-cloud';cloud.textContent='☁ '+reply;row.append(cloud);status.textContent='Cloud-enhanced via '+settings.model+' · '+provider.name+(settings.webSearch&&provider.id==='gemini'?' · live web search':'');}catch(error){status.textContent='Cloud answer unavailable: '+error.message;}scroll();}
   async function ask(questionRaw){
     const question=String(questionRaw||'').trim().slice(0,300);if(!question)return;
-    bubble('user',question);input.value='';status.textContent='Searching this device…';
+    bubble('user',question);if(input.value.trim()===question){input.value='';photoLibrary.searchQuery='';photoLibrary.semanticScores=null;try{render();}catch{}}status.textContent='Searching this device…';
     const intent=parseQuestion(question,knownNames());
     let photos=[],songs=[],facts={};
     const audio=$('audio');
@@ -173,10 +171,10 @@ const assistant=(()=>{
     void cloudPolish(row,intent,photos,songs);
     renderSuggestions();
   }
-  form.onsubmit=event=>{event.preventDefault();void ask(input.value);};
+  input.addEventListener('keydown',event=>{if(event.key!=='Enter'||event.isComposing)return;const question=input.value.trim();if(!question)return;event.preventDefault();openSearchView();void ask(question);});
   const mic=$('aiAskMic');
-  if(mic){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!window.SAI_ANDROID&&!SR){mic.hidden=true;}else{let micBusy=false;
-    mic.onclick=async()=>{if(micBusy)return;const placeholder=input.placeholder;
+  if(mic){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!window.SAI_ANDROID&&!SR){mic.hidden=true;mic.dataset.unavailable='true';}else{let micBusy=false;
+    mic.onclick=async()=>{if(micBusy)return;openSearchView();const placeholder=input.placeholder;
       if(window.SAI_ANDROID){micBusy=true;mic.classList.add('listening');mic.setAttribute('aria-pressed','true');status.textContent='Listening… speak now.';input.placeholder='Listening…';
         try{let data=null;for(let attempt=0;attempt<12;attempt++){data=await api('device-speech',{method:'POST'});if(!data.pendingPermission)break;status.textContent='Waiting for the Microphone permission — tap “Allow” on the phone prompt…';await new Promise(resolve=>setTimeout(resolve,1200));}
           if(data?.pendingPermission)throw new Error('Microphone permission was not granted. Allow it in the phone prompt or Android Settings.');
@@ -192,9 +190,8 @@ const assistant=(()=>{
   function renderSuggestions(){const box=$('aiSuggestions');if(!box)return;let list=[];try{list=suggestAlbums(state.photo,photoLibrary.meta,photoLibrary.people||[],new Date());}catch{list=[];}let dismissed=[];try{dismissed=JSON.parse(localStorage.getItem('sai-suggest-dismissed')||'[]');}catch{dismissed=[];}list=list.filter(suggestion=>!dismissed.includes(suggestion.query)).slice(0,4);box.replaceChildren();if(!list.length){box.hidden=true;return;}box.hidden=false;const title=document.createElement('p');title.className='ai-suggest-title';title.textContent='Suggested albums';box.append(title);for(const suggestion of list){const row=document.createElement('div');row.className='ai-suggest-row';const create=document.createElement('button');create.type='button';create.textContent=suggestion.name+' · '+suggestion.count;create.onclick=()=>{if(!photoLibrary.account){toast('Connect pCloud to create albums.');return;}if(!$('smartAlbumName')||!$('smartAlbumQuery'))return;$('smartAlbumName').value=suggestion.name;$('smartAlbumQuery').value=suggestion.query;photoLibrary.createSmartAlbum().catch(()=>{});toast('Creating “'+suggestion.name+'” — it appears in Albums once saved to pCloud.');try{dismissed.push(suggestion.query);localStorage.setItem('sai-suggest-dismissed',JSON.stringify(dismissed.slice(-100)));}catch{}renderSuggestions();};const dismiss=document.createElement('button');dismiss.type='button';dismiss.className='ai-suggest-dismiss';dismiss.setAttribute('aria-label','Dismiss '+suggestion.name);dismiss.textContent='✕';dismiss.onclick=()=>{try{dismissed.push(suggestion.query);localStorage.setItem('sai-suggest-dismissed',JSON.stringify(dismissed.slice(-100)));}catch{}renderSuggestions();};row.append(create,dismiss);box.append(row);}}
   return {open(){renderHistory();renderChips();renderSuggestions();input.focus();},ask};
 })();
-if($('aiTopSearch'))$('aiTopSearch').onclick=()=>{setTab('photo');$('search').focus();$('search').scrollIntoView({block:'center'});};
-if($('aiTopStatus'))$('aiTopStatus').onclick=()=>{void assistant.ask('indexing status');};
-if($('aiStatusPill'))$('aiStatusPill').onclick=()=>{setTab('ai');void assistant.ask('indexing status');};
+window.saiAssistantOpen=()=>assistant.open();
+if($('aiStatusPill'))$('aiStatusPill').onclick=()=>{openSearchView();assistant.open();void assistant.ask('indexing status');};
 let galleryBatch=50;try{galleryBatch=localStorage.getItem('sai-gallery-batch')==='100'?100:50;$('sortPhotos').value=localStorage.getItem('sai-gallery-sort')||'newest';$('galleryTheme').value=localStorage.getItem('sai-gallery-theme')||'system';}catch{}
 state.limit=galleryBatch;$('galleryBatch').value=String(galleryBatch);
 function applyGalleryTheme(){const choice=$('galleryTheme').value;document.body.classList.toggle('theme-dark',choice==='dark'||choice==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);try{localStorage.setItem('sai-gallery-theme',choice);}catch{}}
@@ -227,7 +224,7 @@ function updateAiStatusPill() {
   if (!total && !indexed) { pill.hidden = true; return; }
   pill.hidden = false;
   pill.textContent = running ? 'AI indexing… ' + indexed + '/' + total : 'AI ' + indexed + '/' + total + ' indexed' + (visuals ? ' · ' + visuals + ' image search' : '');
-  pill.title = 'Indexed ' + indexed + ' of ' + total + ' photos' + (visuals ? ' · ' + visuals + ' with AI image search' : '') + '. Tap for details in the AI tab.';
+  pill.title = 'Indexed ' + indexed + ' of ' + total + ' photos' + (visuals ? ' · ' + visuals + ' with AI image search' : '') + '. Tap to ask in Search.';
 }
 function openFolderPicker(kind) {
   folderKind = kind;
@@ -451,9 +448,38 @@ function setTab(tab) {
   state.tab = tab; state.limit = galleryBatch; clearTimeout(searchDelay); photoLibrary.searchQuery = ''; photoLibrary.semanticScores = null; $('search').value = '';
   $('photosTab').classList.toggle('active', tab === 'photo'); $('musicTab').classList.toggle('active', tab === 'audio');
   $('photosTab').setAttribute('aria-pressed', String(tab === 'photo')); $('musicTab').setAttribute('aria-pressed', String(tab === 'audio'));
-  $('photosPanel').hidden = tab !== 'photo'; $('musicPanel').hidden = tab !== 'audio'; $('aiPanel').hidden = tab !== 'ai';
-  const aiButton=$('navAi');if(aiButton){aiButton.setAttribute('aria-current',String(tab==='ai'));aiButton.classList.toggle('active',tab==='ai');}
-  $('search').placeholder = tab === 'photo' ? 'Search photos' : 'Search songs';document.body.classList.toggle('music-active',tab==='audio');if(window.SAI_MUSIC_ENABLED){$('navMusic')?.setAttribute('aria-current',String(tab==='audio'));for(const id of ['galleryPageTitle','galleryDiscovery','galleryMemories'])if($(id))$(id).hidden=tab!=='photo';}render();if(window.SAI_MUSIC_ENABLED){if(tab!=='audio')musicPlayer.closeFullscreen();musicPlayer.playerUI();}if(tab!=='ai'&&window.SAI_MUSIC_ENABLED&&state.connected&&!state[tab].length)loadLibrary();if(tab==='ai')assistant.open();
+  $('photosPanel').hidden = tab !== 'photo'; $('musicPanel').hidden = tab !== 'audio';
+  $('search').placeholder = tab === 'photo' ? 'Search photos, people and songs' : 'Search songs';document.body.classList.toggle('music-active',tab==='audio');if(window.SAI_MUSIC_ENABLED){$('navMusic')?.setAttribute('aria-current',String(tab==='audio'));for(const id of ['galleryPageTitle','galleryDiscovery','galleryMemories'])if($(id))$(id).hidden=tab!=='photo';}render();if(window.SAI_MUSIC_ENABLED){if(tab!=='audio')musicPlayer.closeFullscreen();musicPlayer.playerUI();}if(window.SAI_MUSIC_ENABLED&&state.connected&&!state[tab].length)loadLibrary();
+}
+function renderSearchExtras(){
+  const box=$('searchExtras');if(!box)return;
+  const searchView=!document.body.classList.contains('music-active')&&(window.SAI_PHOTOS_ONLY?$('galleryPageTitle')?.textContent==='Search':state.tab==='photo');
+  if($('aiSearchExtras'))$('aiSearchExtras').hidden=!searchView||state.tab!=='photo';
+  box.hidden=!searchView||state.tab!=='photo';
+  if(box.hidden)return;
+  const query=$('search').value.trim().toLowerCase();
+  box.replaceChildren();
+  const addSection=label=>{const heading=document.createElement('h3');heading.className='search-extras-title';heading.textContent=label;box.append(heading);const row=document.createElement('div');row.className='search-extras-row';box.append(row);return row;};
+  if(query){
+    const matches=(photoLibrary.people||[]).filter(person=>person.name&&person.name.toLowerCase().includes(query)).slice(0,4);
+    if(matches.length){const row=addSection('People');for(const person of matches){const chip=document.createElement('button');chip.type='button';const name=document.createElement('span');name.textContent='👤 '+person.name;const count=document.createElement('span');count.className='search-extras-note';count.textContent=person.photos.size+' photos';chip.append(name,count);chip.onclick=()=>{photoLibrary.filters={ids:[...person.photos]};photoLibrary.filterTitle=person.name;$('search').value='';photoLibrary.searchQuery='';photoLibrary.semanticScores=null;photoLibrary.render();window.scrollTo({top:0,behavior:'smooth'});};row.append(chip);}}
+  }
+  if(window.SAI_MUSIC_ENABLED){
+    const meta=photoLibrary.meta||{};let all=[];try{all=[...musicPlayer.allTracks().values()];}catch{all=[];}
+    const liked=track=>Boolean(meta.musicLikes&&meta.musicLikes[track.id]);
+    const history=track=>meta.musicHistory&&meta.musicHistory[track.id];
+    const addSongs=(label,songs)=>{if(!songs.length)return;const row=addSection(label);for(const song of songs){const button=document.createElement('button');button.type='button';const name=document.createElement('span');name.textContent='▶ '+song.name;button.append(name);const note=document.createElement('span');note.className='search-extras-note';note.textContent=liked(song)?'♥ liked':history(song)?'played':'song';button.append(note);button.onclick=()=>{gallerySelection.mode=false;gallerySelection.selected.clear();gallerySelection.refresh();setTab('audio');musicPlayer.play(song,songs);};row.append(button);}};
+    const byRecent=(a,b)=>(history(b)?.playedAt||0)-(history(a)?.playedAt||0);
+    if(query){
+      if(/liked|favorite/.test(query))addSongs('Liked songs',all.filter(liked).slice(0,12));
+      else if(/recent|played|history/.test(query))addSongs('Recently played',all.filter(history).sort(byRecent).slice(0,12));
+      else addSongs('Music · song name matches',all.filter(track=>track.name.toLowerCase().includes(query)).slice(0,8));
+    }else{
+      addSongs('Liked songs',all.filter(liked).slice(0,6));
+      addSongs('Recently played',all.filter(history).sort(byRecent).slice(0,6));
+    }
+  }
+  if(!box.childElementCount)box.hidden=true;
 }
 function appendPhotoCards(items, from, to, query, lastPhotoDay) {
   const grid = $('photoGrid');
@@ -491,8 +517,8 @@ function render() {
   $('search').hidden = state.tab !== 'photo';
   const items = state.tab === 'photo' ? sortPhotos(photoLibrary.filter(state.photo, query),$('sortPhotos').value) : state.tab === 'audio' ? musicPlayer.items(query) : [];
   gallerySelection.scope([photoLibrary.account,photoLibrary.view,photoLibrary.focus,query,photoFolder?.id||'default',JSON.stringify(photoLibrary.filters)].join(':'));$('galleryToolbar').hidden=state.tab!=='photo';
-  $('count').textContent = state.tab === 'ai' ? 'AI assistant' : `${items.length} ${state.tab === 'photo' ? items.length === 1 ? 'photo' : 'photos' : items.length === 1 ? 'song' : 'songs'}`;
-  $('empty').hidden = state.tab === 'ai' || items.length > 0;
+  $('count').textContent = `${items.length} ${state.tab === 'photo' ? items.length === 1 ? 'photo' : 'photos' : items.length === 1 ? 'song' : 'songs'}`;
+  $('empty').hidden = items.length > 0;
   $('empty').querySelector('h2').textContent = state.tab==='photo'&&photoLibrary.scanError?'Photo library could not load':state.tab === 'photo' ? 'Your photos, together' : 'Your music, together';
   $('empty').querySelector('p').textContent = !state.connected ? window.SAI_PHOTOS_ONLY?'Connect pCloud to bring your photos together.':'Connect pCloud to browse your photos and music.' : state.tab==='photo'&&photoLibrary.scanError?photoLibrary.scanError+' · Open Settings → Backup to choose a folder or refresh.': $('search').value ? 'No matches. Try another search.' : 'No supported files found in your configured pCloud folders.';
   $('photoGrid').replaceChildren(); $('songs').replaceChildren();
@@ -502,6 +528,8 @@ function render() {
   gallerySelection.refresh();
   if(state.tab==='photo')enteGallery.render();
   if (state.tab === 'audio') musicPlayer.render(items);
+  if($('aiAskMic'))$('aiAskMic').hidden=state.tab!=='photo'||$('search').hidden||$('aiAskMic').dataset.unavailable==='true';
+  renderSearchExtras();
   updateAiStatusPill();
 }
 if(window.SAI_MUSIC_ENABLED){

@@ -5,21 +5,31 @@ import {readFileSync} from 'node:fs';
 const root=new URL('..',import.meta.url);
 const read=file=>readFileSync(new URL(file,root),'utf8');
 
-test('bottom bar is Library, Albums, Music, Search and AI — no Favorites tab',()=>{
+test('bottom bar is Library, Albums, Music, Search — no Favorites and no AI tab',()=>{
   const smart=read('smart-features.mjs');
   assert.ok(!smart.includes("favorites.id='navFavorites'"),'smart-features must not create the Favorites tab');
   assert.ok(!smart.includes("['navFavorites'"),'no navFavorites references may remain');
   const app=read('app.js');
   assert.ok(app.includes("nav.insertBefore(music,$('navSearch'))"),'Music tab must sit between Albums and Search');
   assert.ok(!app.includes("nav.insertBefore(music,$('navFavorites'))"),'Music tab must not reference the removed Favorites tab');
+  assert.ok(!app.includes('navAi'),'the AI tab must be removed from app.js');
+  assert.ok(!app.includes("setTab('ai')"),'no code may switch to a removed AI tab');
 });
 
-test('AI ask bar sits at the top of the AI screen',()=>{
+test('the assistant lives inside the Search view, not a separate screen',()=>{
   const html=read('index.html');
-  const form=html.indexOf('id="aiAskForm"');
-  const head=html.indexOf('class="ai-head"');
-  const log=html.indexOf('id="aiChatLog"');
-  assert.ok(form>0&&head>form&&log>form,'ask form must come before the header and the chat log');
+  assert.ok(!html.includes('id="aiPanel"'),'the standalone AI panel must be gone');
+  const panel=html.indexOf('<section id="photosPanel"');
+  const extras=html.indexOf('id="aiSearchExtras"');
+  const toolbar=html.indexOf('id="galleryToolbar"');
+  assert.ok(panel>0&&extras>panel&&toolbar>extras,'chat answers must live inside the photo panel before the results toolbar');
+  const tools=html.indexOf('class="tools"');
+  const mic=html.indexOf('id="aiAskMic"');
+  assert.ok(tools>0&&mic>tools,'the mic button must live inside the tools row beside search');
+  assert.ok(!html.includes('id="aiAskForm"')&&!html.includes('id="aiAskInput"'),'the old separate ask form must be gone');
+  const app=read('app.js');
+  assert.ok(app.includes("addEventListener('keydown'"),'pressing Enter in the search bar must ask the assistant');
+  assert.ok(app.includes('renderSearchExtras'),'the search view must render people and music extras');
 });
 
 test('now-playing card lives inside the Music tab and is not fixed to the screen top',()=>{
@@ -63,13 +73,12 @@ test('app version strings agree across settings, package and release notes',()=>
 
 test('AI ask bar offers voice input with a native speech bridge',()=>{
   const html=read('index.html');
-  assert.ok(html.includes('id="aiAskMic"'),'ask bar must include the microphone button');
-  const form=html.indexOf('id="aiAskForm"');
+  const tools=html.indexOf('class="tools"');
   const mic=html.indexOf('id="aiAskMic"');
-  const send=html.indexOf('id="aiAskSend"');
-  assert.ok(form>0&&mic>form&&send>mic,'mic button must sit inside the ask form before Ask');
+  assert.ok(tools>0&&mic>tools,'the microphone button must sit in the search tools row');
   const app=read('app.js');
   assert.ok(app.includes("api('device-speech'"),'app must call the device-speech bridge');
+  assert.ok(app.includes("openSearchView();const placeholder=input.placeholder"),'voice input must open the search view before listening');
   const manifest=read('android/app/src/main/AndroidManifest.xml');
   assert.ok(manifest.includes('android.permission.RECORD_AUDIO'),'RECORD_AUDIO permission must be declared');
   const activity=read('android/app/src/main/java/com/saiphotos/mobile/MainActivity.kt');
@@ -77,13 +86,45 @@ test('AI ask bar offers voice input with a native speech bridge',()=>{
   assert.ok(activity.includes('SpeechRecognizer.createSpeechRecognizer'),'MainActivity must create a SpeechRecognizer');
 });
 
-test('AI header stays a single short line',()=>{
-  const html=read('index.html');
-  const head=html.slice(html.indexOf('class="ai-head"'),html.indexOf('id="aiToolbar"')>0?html.indexOf('id="aiToolbar"'):undefined);
-  const text=head.match(/<p class="settings-muted">([^<]+)<\/p>/);
-  assert.ok(text,'ai-head must keep one description line');
-  
-  assert.ok(text[1].length<=60,'description must stay short enough to fit one line');
+test('search covers people names, AI index results and music with liked and recent songs',()=>{
+  const app=read('app.js');
+  assert.ok(app.includes("addSection('People')"),'search must surface matching people names');
+  assert.ok(app.includes("'Liked songs'")&&app.includes("'Recently played'"),'empty search must show liked and recently played songs');
+  assert.ok(app.includes('musicLikes')&&app.includes('musicHistory'),'music search must use liked songs and play history');
+  assert.ok(app.includes("'Music · song name matches'"),'search must match songs by name');
+  const library=read('photo-library.mjs');
+  assert.ok(library.includes('${people} ${albums}'),'photo search must keep matching indexed text, people names and albums');
+  assert.ok(library.includes("photoSearchStatus').textContent='AI search · '"),'AI index search must report how many photos were searched');
+});
+
+test('album cards are compact — hide and delete live inside the opened album',()=>{
+  const library=read('photo-library.mjs');
+  assert.ok(!library.includes("hide.setAttribute('aria-label','Hide album '"),'album cards must not carry a Hide button');
+  assert.ok(!library.includes("remove.setAttribute('aria-label','Delete album '"),'album cards must not carry a Delete button');
+  const smart=read('smart-features.mjs');
+  assert.ok(smart.includes("make('button','','Hide album')"),'the opened album must offer Hide album');
+  assert.ok(smart.includes('library.setAlbumHidden(library.focus,true)'),'Hide album must hide the open album');
+  const css=read('styles.css');
+  assert.ok(css.includes('.photos-only .collection-cards{gap:10px;grid-template-columns:repeat(3,minmax(0,1fr))}'),'three album cards must fit per row');
+});
+
+test('the photo library looks like Apple Photos — photos first, controls in Settings',()=>{
+  const app=read('app.js');
+  assert.ok(!app.includes('if(!window.SAI_PHOTOS_ONLY){const controls='),'library controls must move into Settings on every build, not only the web app');
+  assert.ok(app.includes("const controls=$('photoControlContent');for(const element of [$('choosePhotoFolder').closest('.music-folder'),$('photoFolderSummary'),$('indexModeWrap'),$('indexPhotos').closest('.photo-actions'),$('indexStatus'),$('visualIndexStatus')])if(element)controls.append(element);"),'the folder card, indexing actions and status lines belong in Settings');
+  assert.ok(app.includes("$('aiAskMic').hidden=state.tab!=='photo'||$('search').hidden||"),'the microphone must only appear beside the visible search bar');
+  const smart=read('smart-features.mjs');
+  assert.ok(smart.includes("$('search').hidden=tab!=='search'&&!query;const mic=$('aiAskMic');if(mic)mic.hidden=mic.dataset.unavailable==='true'||$('search').hidden;"),'the home tab keeps a clean photo grid with no stray microphone');
+  const css=read('styles.css');
+  assert.ok(css.includes('#indexStatus:empty,#visualIndexStatus:empty,#sharedIndexStatus:empty,#photoSearchStatus:empty,#photoSync:empty,.music-folder:has(.photo-folder-hint:only-child:empty){display:none}'),'empty status lines and empty folder cards must not take space on the photo grid');
+});
+
+test('opening views starts at the top of the right page',()=>{
+  const library=read('photo-library.mjs');
+  assert.ok(library.includes("$('backCollections').onclick = () => { this.focus = null; this.render(); window.scrollTo({top:0,behavior:'smooth'}); };"),'Back from an album must scroll to the top');
+  assert.ok(library.includes('this.focus = collection.id; this.render(); window.scrollTo({ top: 0, behavior: \'smooth\' });'),'opening an album must scroll to the top');
+  const smart=read('smart-features.mjs');
+  assert.ok(smart.includes("library.render();window.scrollTo({top:0,behavior:'smooth'});return true;}"),'hardware back must scroll to the top');
 });
 
 test('suggested albums show four at a time and refill after a click',()=>{
