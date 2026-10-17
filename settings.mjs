@@ -1,7 +1,7 @@
 import {photoCacheInfo,clearMirror} from './photo-cache.mjs';
 import {sharedIndexProgress,sharedIndexLabel,formatSize} from './photo-tools.mjs';
 import {PROVIDERS,providerById,fetchModels,pickModel,chat,keyStorageId,cleanKey} from './ai-providers.mjs';
-export const APP_VERSION = '1.27.1';
+export const APP_VERSION = '1.28.0';
 export function indexCoverage(library) {
   const photos=library.photos().filter(photo=>photo.mediaType!=='video');
   const current=(map,photo)=>map?.[photo.id]?.version===photo.version;
@@ -57,6 +57,13 @@ const limitations = [
   'Large record histories still need compaction and optimization. Sync currently accepts at most 90,000 known records.',
 ];
 export const RELEASES = [
+  {version:'1.28.0',date:'17 October 2026',time:'09:09',title:'Full-quality viewing, opt-in song downloads and smarter music controls',changes:['Photos now always open in full quality: the viewer keeps the sharp original instead of falling back to the blurry preview, and full-quality copies are cached on this device (up to 24) so they reopen instantly without re-downloading. Settings → Free up space has the two new switches — open in full quality (on) and preload while charging on Wi‑Fi (off, never uses cellular).',
+  'Playing or skipping songs no longer downloads anything. Offline song caching is now opt-in: “Keep songs I play offline” is off by default, and the Download offline button still saves a song whenever you want it. Anything already saved stays until you use Clear mirror downloads.',
+  'Hearts are now reliable: when a favourite cannot reach pCloud it is kept on the phone and retried automatically — offline, across restarts or overnight — and then merged with pCloud’s stars both ways. If a heart lands on a photo pCloud will not accept, the viewer now says exactly why.',
+  'The ✦ AI assistant can now act, not just answer: “Stop music in 10 minutes”, “Stop the music”, “Create album Roses”, “Index status” run instantly, alongside photo, video and music questions with photo thumbnails and one-tap song chips.',
+  'Music controls: a top mini player with previous / play / next / queue, a full-screen player with artwork and a draggable seek bar, and Next that correctly continues the current list instead of stopping.',
+  'People groups can be locked so they are never renamed automatically, reset in one tap whenever you want (names only — photos and indexes stay untouched), and named straight from your phone’s contacts.',
+  'Fresh look: the Sai Photos orange brand, the Inter typeface and gentle animations across the app, with a new AI status pill and top search row that show whether answers and indexing are ready.']},
   {version:'1.27.1',date:'17 October 2026',time:'02:33',title:'Offline mirror, suggested albums and one-tap app updates',changes:['New in Settings → Free up space: the offline mirror. Songs you play and every video you watch are kept on this device automatically — the last few videos and up to 500 MB of songs — so they replay instantly with no connection, even in airplane mode. The two switches control it and “Clear mirror downloads” removes only device copies. pCloud originals are never touched.',
   'The ✦ AI tab now opens with Suggested albums when your library has enough to suggest: last month’s recap (15+ photos), a videos-only cut, a person’s busiest year, your favourites, and frequent text themes from your indexes. One tap turns a suggestion into a real smart album — the ✕ hides it for good.',
   'Smart album rules gained filter tokens: year:2024, month:2024-06, media:video and media:photo. Combine them with a phrase or a person’s name in Settings-free fashion — “Wifey year:2026”, “roses year:2024”, “media:video month:2026-09” — and the album keeps updating by itself.',

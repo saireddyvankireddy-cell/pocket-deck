@@ -79,7 +79,7 @@ class MainActivity:Activity() {
         web.setPadding(0,0,0,0)
         web.setOnApplyWindowInsetsListener { view,insets -> view.setPadding(insets.systemWindowInsetLeft,insets.systemWindowInsetTop,insets.systemWindowInsetRight,insets.systemWindowInsetBottom);insets }
         setContentView(web)
-        web.settings.apply { javaScriptEnabled=true;domStorageEnabled=true;allowFileAccess=false;allowContentAccess=false;setAllowFileAccessFromFileURLs(false);setAllowUniversalAccessFromFileURLs(false);mixedContentMode=WebSettings.MIXED_CONTENT_NEVER_ALLOW;mediaPlaybackRequiresUserGesture=false;userAgentString += " SaiPhotosAndroid/1.27.1" }
+        web.settings.apply { javaScriptEnabled=true;domStorageEnabled=true;allowFileAccess=false;allowContentAccess=false;setAllowFileAccessFromFileURLs(false);setAllowUniversalAccessFromFileURLs(false);mixedContentMode=WebSettings.MIXED_CONTENT_NEVER_ALLOW;mediaPlaybackRequiresUserGesture=false;userAgentString += " SaiPhotosAndroid/1.28.0" }
         web.addJavascriptInterface(Bridge(),"SaiNative")
         web.webChromeClient=object:WebChromeClient(){override fun onConsoleMessage(message:ConsoleMessage):Boolean { if(message.messageLevel()==ConsoleMessage.MessageLevel.ERROR)android.util.Log.w("SaiPhotosUI",message.message().take(500));return true }}
         web.webViewClient=object:WebViewClient() {
