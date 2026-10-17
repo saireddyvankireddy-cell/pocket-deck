@@ -1,0 +1,38 @@
+import {randomUUID} from 'node:crypto';
+import {authRequired,json,origin,session} from './lib/oauth.mjs';
+import {call,pcloudURL} from './lib/pcloud.mjs';
+import listMedia from './media-list.mjs';
+import metadata from './photo-metadata.mjs';
+import {boundedVisualFeatures} from './lib/visual-worker-client.mjs';
+import {duplicateCandidates,VISUAL_MODEL,withIndexDeadline} from '../../photo-tools.mjs';
+const jobs=new Map();
+function key(request){const user=session(request);return user.host+':'+user.uid;}
+function publicJob(job){if(!job)return {running:false,completed:0,total:0,failed:0};return {running:job.running,completed:job.completed,total:job.total,failed:job.failed,phase:job.phase,message:job.message,folderId:job.folderId,libraryTotal:job.libraryTotal||0,alreadyIndexed:job.alreadyIndexed||0,updatedAt:job.updatedAt||Date.now(),currentPhoto:job.currentPhoto||null,checksumTotal:job.checksumTotal||0,checksumCompleted:job.checksumCompleted||0};}
+async function save(request,operation){const response=await withIndexDeadline(metadata(new Request(new URL('./photo-metadata?action=write',request.url),{method:'POST',headers:request.headers,body:JSON.stringify({operation:{id:randomUUID(),at:Date.now(),...operation}})})),120000,'Saving index in pCloud');const result=await response.json();if(!response.ok)throw new Error(result.error);return result.operation;}
+async function run(request,job,known,checksums){
+ try{
+  job.phase='Loading photo library';const response=await listMedia(new Request(new URL('./media-list?kind=photo'+(job.folderId===null?'':'&folderid='+encodeURIComponent(job.folderId)),request.url),{headers:request.headers}));const data=await response.json();if(!response.ok)throw new Error(data.error);if(data.scan?.complete===false)throw new Error('Incomplete pCloud folder scan: some folders cannot be read. Indexing is paused.');
+  data.items=data.items.filter(photo=>photo.mediaType!=='video');
+  const existing=job.known;const pending=data.items.filter(photo=>existing.get(photo.id)!==photo.version);job.total=pending.length;job.libraryTotal=data.items.length;job.alreadyIndexed=data.items.length-pending.length;
+  job.phase='Preparing bounded local AI';
+  const loadPhoto=async(photo)=>{const latest=(await call(request,'stat',{fileid:photo.id.slice(3)})).metadata;if(String(latest.hash||latest.modified||'')!==photo.version)throw new Error('Photo changed');const preview=await fetch(pcloudURL(request,'getthumb',{fileid:photo.id.slice(3),size:'640x480',crop:0}),{signal:AbortSignal.timeout(30000)});if(!preview.ok||!preview.headers.get('content-type')?.startsWith('image/'))throw new Error('Preview unavailable');return Buffer.from(await preview.arrayBuffer());};
+  let prefetch=null;
+  for(let i=0;i<pending.length;i++){const photo=pending[i];if(job.stop)break;if(job.known.get(photo.id)===photo.version){job.alreadyIndexed++;job.total--;continue;}job.phase='Loading photo preview';job.currentPhoto=photo.id;job.updatedAt=Date.now();try{let bytes=null;if(prefetch&&prefetch.id===photo.id)bytes=await prefetch.promise;prefetch=null;if(!bytes)bytes=await loadPhoto(photo);const nextPhoto=pending[i+1];if(nextPhoto&&!job.stop&&job.known.get(nextPhoto.id)!==nextPhoto.version)prefetch={id:nextPhoto.id,promise:loadPhoto(nextPhoto).catch(()=>null)};job.phase='Analyzing visual search and similarity';job.updatedAt=Date.now();const features=await boundedVisualFeatures(bytes,photo);if(job.stop)break;job.phase='Saving index in pCloud';job.updatedAt=Date.now();await save(request,{type:'visual-index',photoId:photo.id,version:photo.version,...features});job.completed++;job.known.set(photo.id,photo.version);job.updatedAt=Date.now();}catch(error){job.failed++;if(/permission|expired|pCloud.*code|could not.*app record/i.test(error.message)){job.message=error.message;break;}}}
+  if(!job.stop&&!job.message){job.phase='Verifying exact duplicate fingerprints';const checked=new Map(checksums.map(item=>[item.id,item.version]));const candidates=duplicateCandidates(data.items).filter(photo=>checked.get(photo.id)!==photo.version);job.checksumTotal=candidates.length;job.checksumCompleted=0;for(const photo of candidates){if(job.stop)break;job.currentPhoto=photo.id;job.updatedAt=Date.now();try{const result=await call(request,'checksumfile',{fileid:photo.id.slice(3)});if(String(result.metadata?.hash||result.metadata?.modified||'')!==photo.version)continue;if(!/^[a-f0-9]{40}$/i.test(result.sha1||''))throw new Error('Checksum unavailable');await save(request,{type:'content-index',photoId:photo.id,version:photo.version,sha1:result.sha1.toLowerCase()});job.checksumCompleted++;job.updatedAt=Date.now();}catch{job.failed++;}}}
+  job.phase=job.stop?'Paused':job.message?'Stopped':job.failed?'Finished with failures':!pending.length&&!job.checksumTotal?'Already completed':'Finished';
+ }catch(error){job.phase='Stopped';job.message=/pCloud|permission|expired/i.test(error.message)?error.message:'Local AI indexing could not finish. Check the Mac connection and restart indexing.';}finally{job.running=false;}
+}
+export default async request=>{
+ const denied=authRequired(request);if(denied)return denied;if(request.method==='GET')return json(publicJob(jobs.get(key(request))));
+ if(request.method!=='POST')return json({error:'Method not allowed.'},405);if(request.headers.get('origin')!==origin())return json({error:'Request origin not allowed.'},403);const body=await request.json().catch(()=>null);const id=key(request);
+ if(body?.action==='stop'){const job=jobs.get(id);if(job)job.stop=true;return json(publicJob(job));}
+ if(body?.action==='known'){
+  if(!Array.isArray(body.known)||body.known.length>90000||!body.known.every(item=>/^pc-\d{1,20}$/.test(item.id||'')&&typeof item.version==='string'&&item.version.length<200))return json({error:'Invalid saved indexes.'},400);
+  const job=jobs.get(id);if(job)for(const item of body.known)job.known.set(item.id,item.version);return json(publicJob(job));
+ }
+ if(body?.action==='text'){if(typeof body.query!=='string'||!body.query.trim()||body.query.length>300)return json({error:'Invalid search.'},400);try{const {textEmbedding}=await import('./lib/visual-ai.mjs');return json({embedding:await textEmbedding(body.query),model:VISUAL_MODEL});}catch{return json({error:'The Mac AI search model is not ready. Keep the Mac awake and retry.'},503);}}
+ if(body?.action!=='start'||!Array.isArray(body.known)||body.known.length>90000||!body.known.every(item=>/^pc-\d+$/.test(item.id||'')&&typeof item.version==='string'&&item.version.length<200))return json({error:'Invalid index request.'},400);
+ if(body.checksums!==undefined&&(!Array.isArray(body.checksums)||body.checksums.length>90000||!body.checksums.every(item=>/^pc-\d{1,20}$/.test(item.id||'')&&typeof item.version==='string'&&item.version.length<200)))return json({error:'Invalid checksum index.'},400);
+ if(body.folderId!==undefined&&body.folderId!==null&&!/^\d{1,20}$/.test(body.folderId))return json({error:'Invalid photo folder.'},400);
+ const folderId=body.folderId??null;const current=jobs.get(id);if(current?.running){if(current.stop||current.folderId!==folderId)return json({error:'The previous indexing job is stopping. Wait a moment and start indexing this folder again.'},409);return json(publicJob(current));}const job={known:new Map(body.known.map(item=>[item.id,item.version])),folderId,running:true,completed:0,total:0,failed:0,stop:false,phase:'Starting',message:''};jobs.set(id,job);void run(request,job,body.known,body.checksums||[]);return json(publicJob(job));
+};

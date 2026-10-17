@@ -1,0 +1,8 @@
+import {authRequired,json,origin} from './lib/oauth.mjs';
+import {call} from './lib/pcloud.mjs';
+import photoDelete from './photo-delete.mjs';
+export default async request=>{
+ const denied=authRequired(request);if(denied)return denied;if(request.method!=='POST')return json({error:'Method not allowed.'},405);if(request.headers.get('origin')!==origin())return json({error:'Request origin not allowed.'},403);const body=await request.json().catch(()=>null);
+ if(body?.confirmed!==true||!Array.isArray(body.items)||!body.items.length||body.items.length>25||!body.items.every(item=>/^pc-\d+$/.test(item.id||'')&&typeof item.fileName==='string'&&item.fileName.length>0&&item.fileName.length<=1024&&typeof item.version==='string'&&item.version.length<200)||new Set(body.items.map(item=>item.id)).size!==body.items.length)return json({error:'Review and confirm the selected photos before deleting.'},400);
+ const results=[];for(const item of body.items){try{const current=(await call(request,'stat',{fileid:item.id.slice(3)})).metadata;if(String(current.hash||current.modified||'')!==item.version){results.push({id:item.id,deleted:false,error:'Photo changed since review. Refresh before deleting.'});continue;}}catch(error){if(![2009,2055].includes(error.result)){results.push({id:item.id,deleted:false,error:'Could not verify this photo before deletion.'});continue;}}const response=await photoDelete(new Request(new URL('./photo-delete',request.url),{method:'POST',headers:request.headers,body:JSON.stringify({...item,confirmed:true})}));const data=await response.json();results.push({id:item.id,deleted:response.ok&&data.deleted===true,error:data.error||null});}return json({results});
+};

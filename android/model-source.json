@@ -1,0 +1,19 @@
+{
+  "repository": "Xenova/clip-vit-base-patch32",
+  "revision": "d15189d7028b43f1d3e65039190477f6af591c2a",
+  "files": [
+    {
+      "path": "tokenizer.json",
+      "sha256": "f7f3b7af117d467b58374797691a6438d3e6b9e9cef800dfd5dced7f697a90cd"
+    },
+    {
+      "path": "onnx/text_model_quantized.onnx",
+      "sha256": "73baab855d406190da9faa498cfedf65f15cf309f4cc7385b7b032e6d08e5c3a"
+    },
+    {
+      "path": "onnx/vision_model_quantized.onnx",
+      "sha256": "583fd1110a514667812fee7d684952aaf82a99b959760c8d7dca7e0ab9839299"
+    }
+  ],
+  "license": "MIT"
+}

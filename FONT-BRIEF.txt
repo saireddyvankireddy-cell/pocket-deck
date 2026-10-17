@@ -1,0 +1,37 @@
+SAI PHOTOS — FONT BRIEF / LICENSING PROMPT
+(Use this text when hiring a type designer or prompting a font-generation tool.)
+
+We are Sai Photos, a private photo-and-music app for Android (WebView) with an
+orange brand: primary accent #F97316, gradient #FF9D2E → #F97316 → #FF6A00,
+used on a near-black player surface (#0B1512) and light UI surfaces (#F9F9FB).
+The app currently ships Inter (body) and Outfit (headings) as system-quality
+fallbacks while we license a signature typeface.
+
+Design brief — the Sai Display "animated" family:
+1. Style: SF Pro Display–like neutral geometric-humanist sans; tall x-height,
+   open apertures, screen-first. Tight tracking at display sizes (-1% to -2%).
+2. Weights: variable 100–900, single axis; true italics optional.
+3. Character set: Latin + extended Latin + Devanagari and Telugu coverage
+   (photo titles are often Indian-language); currency, numerals, arrows,
+   media glyphs (play/pause/next/heart/sparkle) drawn in the same stroke.
+4. Animated variant (the "more animation" request): provide a companion
+   "Sai Motion" showcase set — animated/interpolated glyphs for 12 wordmarks
+   ("Saí Photos"), a loading ellipsis, and a heart that fills on like.
+   Animation may be delivered as Lottie/APNG/SVG outlines plus a short MP4;
+   the static font must remain fully functional without animation.
+5. Deliverables: WOFF2 + TTF + OTF variable fonts, static instances for
+   Android (Regular/Medium/Semibold/Bold), motion kit, specimen PDF.
+6. Licensing required (quote both):
+   a. Perpetual, worldwide, royalty-free license for unlimited installs in our
+      Android app, web app and marketing; redistributable embedded in the APK;
+      source files included; modifications allowed; no attribution required
+      (attribution welcome). One-time fee, no revenue share, no renewals.
+   b. Exclusive buy-out option: full copyright assignment for the Sai Display
+      name and files, with designer retaining portfolio rights.
+7. Guarantees: original work, no TS/Apple trademarks, no AI-training
+   provenance disputes, indemnity for third-party claims, full IP warranties.
+8. Budget & timeline: state fixed price for (a) and (b), 4–8 week delivery,
+   two revision rounds, final files on acceptance. Payment 30% deposit /
+   70% on delivery.
+9. Reply format: price for (a) and (b), timeline, license summary, three
+   comparable typefaces you designed, and one animated sample glyph (the "S").

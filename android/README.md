@@ -1,0 +1,19 @@
+# Sai Photos Android
+
+This is a Kotlin Android host for the shared Sai Photos interface, with native HTTPS pCloud endpoints and local ONNX Runtime CLIP inference. It does not load the Mac website. Connect with your own pCloud account/access token and correct US/EU region; no developer client secret is in the APK. Token storage uses Android Keystore AES-GCM, and app backups are disabled.
+
+Both clients use `/Sai Photos/Web/v1/Operations`. Folder preferences are shared too. Album rules, people assignments, likes, plays, playlists, checksums and AI vectors use the existing record formats. Offline copies are on the individual phone. pCloud's native Favorites are not mirrored.
+
+Build: use JDK 17, Gradle 8.13, Android SDK platform 35 and build-tools 35.0.0. Set `android/local.properties` to your SDK path. Run the web build, then `node scripts/android-prepare.mjs`, then `gradle -p android assembleDebug testDebugUnitTest`. Run `node scripts/android-models.mjs` to restore the pinned public model files with checksum verification. The prepare step requires the two pinned CLIP q8 model files and tokenizer in `.ai-cache/models/Xenova/clip-vit-base-patch32/d15189d7028b43f1d3e65039190477f6af591c2a/` (download by running Mac AI indexing/search first). It bundles vendor FaceAPI/OCR assets and models, and never bundles `.env` or server secrets. Generated assets are excluded from source backups and Git.
+
+Install the APK on Samsung (Android 8+). This is a separately named package `com.saiphotos.mobile`; it will not overwrite your older app or its data. Reconnect the same pCloud account to restore records. Keep the debug signing key for future compatible updates; signing keys are deliberately excluded from source backups. If signing is lost, reinstalling clears that app's device caches; cloud records remain. This initial APK is for your personal testing, not Play Store publication.
+
+Start with a small folder. On-device AI uses phone CPU, battery and storage. Keep the app open during faces/OCR indexing. Saved indexes are reused. Recognition remains approximate. CLIP image preprocessing on Android can differ slightly from the Mac. Renderer recovery preserves saved cloud results but is not proof that every Samsung crash is fixed. The old Kotlin application's source/crash logs were unavailable.
+
+Background playback, lock-screen behavior, offline startup and large-library performance need physical Samsung verification. No unconditional guarantee of full parity or crash-free operation. Supported photo/audio formats match the web app; videos, RAW and encrypted Crypto content are not supported.
+
+## Photos-first v1.8
+
+Android now shows only Photos; the web app retains Music. Use Library & indexing to choose AI search & duplicates, Faces & text, or Everything. Everything runs visual inference first, then faces/OCR, rather than loading both pipelines together. Keep the app open; pause and resume reuses saved pCloud versions. Shared saved-index counters update after cloud restore on each device. Native preview cache is versioned and bounded to 128 MB per account; originals are not all downloaded. Ente-inspired navigation is implemented using Sai Photos code, without copying Ente's source or branding. It is not full Ente parity or Ente end-to-end encryption. pCloud executes no AI and native pCloud Favorites are not mirrored. Jobs started before this update may still process overlapping files on Mac and Samsung; cloud records merge, and later passes reuse saved results.
+
+From v1.11.0 the handoff is the non-debug release build (`assembleRelease`, `testReleaseUnitTest`). It deliberately retains the existing local Android signing identity for update compatibility. The key is not bundled in source archives; preserve it locally. This does not enroll or publish the app in Google Play.

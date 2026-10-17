@@ -1,12 +1,12 @@
 {
-  "name": "Pocket Deck",
-  "short_name": "Pocket Deck",
-  "description": "A small offline music player for local audio files.",
+  "name": "Photos",
+  "short_name": "Photos",
+  "description": "Your pCloud photo library.",
   "start_url": ".",
   "scope": ".",
   "display": "standalone",
-  "background_color": "#f8f6f2",
-  "theme_color": "#f8f6f2",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
   "icons": [
     {
       "src": "icon.svg",
