@@ -17,3 +17,8 @@ android/app/src/main/assets/
 *.jks
 
 .aider*
+
+Sai AI/.gradle/
+Sai AI/.kotlin/
+Sai AI/**/build/
+Sai AI/local.properties

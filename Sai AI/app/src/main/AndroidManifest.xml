@@ -1,0 +1,22 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+ <queries><package android:name="com.saiphotos.mobile"/></queries>
+ <uses-permission android:name="android.permission.INTERNET"/>
+ <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+ <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+ <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+ <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
+ <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+ <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>
+ <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
+ <uses-permission android:name="android.permission.SET_WALLPAPER"/>
+ <application android:label="Sai AI" android:icon="@drawable/app_icon" android:theme="@style/AppTheme" android:allowBackup="false" android:usesCleartextTraffic="false" android:hardwareAccelerated="true" android:largeHeap="true">
+  <!-- Optional GPU backend native libraries (harmless when absent). -->
+  <uses-native-library android:name="libvndksupport.so" android:required="false"/>
+  <uses-native-library android:name="libOpenCL.so" android:required="false"/>
+  <service android:name=".DownloadService" android:exported="false" android:foregroundServiceType="dataSync"/>
+  <activity android:launchMode="singleTop" android:name=".MainActivity" android:exported="true" android:configChanges="orientation|screenSize|keyboardHidden">
+   <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
+   <intent-filter><action android:name="android.intent.action.VIEW"/><category android:name="android.intent.category.DEFAULT"/><category android:name="android.intent.category.BROWSABLE"/><data android:scheme="pcloud-oauth" android:host="com.saiphotos"/></intent-filter>
+  </activity>
+ </application>
+</manifest>

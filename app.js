@@ -106,6 +106,21 @@ if($('copySelectedPhotos'))$('copySelectedPhotos').onclick=()=>bulkTransfer('cop
 if($('moveSelectedPhotos'))$('moveSelectedPhotos').onclick=()=>bulkTransfer('move');
 const openSearchView=()=>{if($('search').hidden){const nav=$('navSearch');if(nav)nav.click();}};
 const enteGallery=setupEnteGallery(photoLibrary);
+// Deep-link bridge for Sai AI and other assistants: saiphotos://open?view=search&q=...&album=/person=/photo=
+window.saiDeepLink=payload=>{
+  try{
+    const link=typeof payload==='string'?JSON.parse(payload||'{}'):(payload||{});
+    const view=String(link.view||'').toLowerCase();
+    const query=String(link.q||link.query||'').trim();
+    const reset=()=>{photoLibrary.focus=null;photoLibrary.filters={};photoLibrary.filterTitle='';photoLibrary.searchQuery='';photoLibrary.semanticScores=null;const field=$('search');if(field)field.value='';};
+    if(link.photo){const item=(state.photo||[]).find(photo=>photo.id===link.photo);if(!item)return{ok:false,error:'That photo is not in your library.'};photoLibrary.open(item,[item]);return{ok:true,action:'photo'};}
+    if(link.album){const hit=Object.entries(photoLibrary.meta.albums||{}).find(([,album])=>String(album.name||'').toLowerCase()===String(link.album).toLowerCase());if(!hit)return{ok:false,error:'Album not found.'};reset();photoLibrary.view='albums';photoLibrary.focus=hit[0];photoLibrary.render();return{ok:true,action:'album'};}
+    if(link.person){const person=(photoLibrary.people||[]).find(entry=>String(entry.name||'').toLowerCase()===String(link.person).toLowerCase());if(!person)return{ok:false,error:'Person not found.'};reset();photoLibrary.view='people';photoLibrary.focus=person.id;photoLibrary.render();return{ok:true,action:'person'};}
+    if(view==='search'||query){reset();enteGallery.navigate('search');if(query){const field=$('search');if(field)field.value=query;photoLibrary.searchQuery=query.toLowerCase();photoLibrary.semanticScores=null;render();try{photoLibrary.aiSearch?.(query);}catch{}}return{ok:true,action:'search'};}
+    if(view==='albums'||view==='favorites'||view==='photos'||view==='library'){reset();enteGallery.navigate(view==='albums'?'albums':view==='favorites'?'favorites':'home');return{ok:true,action:view};}
+    reset();enteGallery.navigate('home');return{ok:true,action:'home'};
+  }catch(error){return{ok:false,error:error.message||'Deep link failed.'};}
+};
 const assistant=(()=>{
   const log=$('aiChatLog'),input=$('search'),status=$('aiAnswerStatus'),chips=$('aiQuickChips');
   if(!log||!input)return {open(){},ask:async()=>{}};

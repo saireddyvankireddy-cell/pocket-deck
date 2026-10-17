@@ -57,7 +57,7 @@ export SAI_ANDROID_BUILD_DIR=/tmp/sai-photos-next-android-build
 
 | Suite | Command | Expected |
 |---|---|---|
-| Unit + contract | `node --test scripts/*.test.mjs` | 112 |
+| Unit + contract | `node --test scripts/*.test.mjs` | 115 |
 | Android instrumented | `connectedReleaseAndroidTest` | 25 |
 | CDP end-to-end harness | `node /tmp/sai-cdp.mjs` | 104 |
 | AI/search harness | `node /tmp/sai-ai-check.mjs` | 13 |
@@ -68,10 +68,17 @@ Harness setup after a release: `adb install -r ~/Downloads/Sai-Photos-Android-<v
 
 ## 6. Current status (latest release)
 
-- **Version: v1.28.5** (commit `b2a6ea2`, pushed to both remotes).
-- APK: `~/Downloads/Sai-Photos-Android-Latest.apk` = `Sai-Photos-Android-v1.28.5.apk` (221,538,212 bytes, SHA-256 `f64f037ca42df4982098cefbe11e9398a677c50b572932e32132613394427869`).
-- Direct download (Samsung on the same Wi-Fi): **http://192.168.88.6:8099/Sai-Photos-Android-Latest.apk** — served by `python3 -m http.server 8099 --directory ~/Downloads` on the Mac. Stops when the Mac sleeps/reboots; restart the command if the link dies.
-- Regression for v1.28.5: 112 unit, 25 Android, 104 + 13 + 19 harness checks, web smoke OK, 0 crashes/ANRs/JS errors.
+- **Sai Photos — Version: v1.28.6** (deep-link API for Sai AI). APK: `~/Downloads/Sai-Photos-Android-Latest.apk` = `Sai-Photos-Android-v1.28.6.apk` (221,539,004 bytes, SHA-256 `c19f9699bb52ecd255cbe19f1c9db6d53f4d6abc76833128facca9feedb4fee0`).
+- **Sai AI — Version: v1.0.0** (first release, standalone app, package `com.saireddy.saiai`). APK: `~/Downloads/Sai-AI-Android-Latest.apk` = `Sai-AI-Android-v1.0.0.apk` (50,390,122 bytes, SHA-256 `74462c924a1ec66fa385bb2a3e79636af36a8f7c7a68d2542ccca9f28f365c05`).
+- Direct download (Samsung on the same Wi-Fi): **http://192.168.88.6:8099/Sai-Photos-Android-Latest.apk** and **http://192.168.88.6:8099/Sai-AI-Android-Latest.apk** — served by `python3 -m http.server 8099 --directory ~/Downloads` on the Mac. Stops when the Mac sleeps/reboots; restart the command if the link dies.
+- Regression for v1.28.6: 115 unit/contract (incl. 3 new deep-link contract tests), 25 Android, 104 + 13 + 19 harness checks, deep-link handler verified on emulator (albums/favorites/photos/search/home → ok, missing album/person/photo → clear errors, cold-start queue applies). Sai AI: 15 core CDP + 9/9 Photos/pCloud/deep-link CDP checks. 0 crashes/ANRs/JS errors.
+
+### What v1.28.6 changed
+
+- **Deep-link API (`saiphotos://open`)** so another app (Sai AI) can open Sai Photos straight to the right place: `view=photos|albums|favorites|search`, `&q=<query>`, `&album=<name>`, `&person=<name>`, `&photo=<id>`.
+- Manifest gains a `saiphotos://open` intent-filter; `MainActivity.kt` parses the launch intent in `onCreate` and `onNewIntent`, queues links that arrive before the page loads (`pendingDeepLink`), and flushes them in `onPageFinished`; the web layer exposes `window.saiDeepLink(payload)` in `app.js`.
+- Links carry only a view name, search phrase, album/person name or photo id — never media, login or tokens. All permissions unchanged.
+- Used by Sai AI: open albums, jump to search, or open a specific pCloud photo in Sai Photos.
 
 ### What v1.28.5 changed
 
@@ -127,4 +134,17 @@ Sai Photos development is **on hold**. This section records the storage/backup d
 - Self-hosted: NAS/mini-PC + HDD + Nextcloud/MinIO — one-time hardware, you maintain it.
 
 **Key concept recorded:** a "bucket" is raw object storage with an API — it is **not** an app like pCloud (no gallery UI, no sync client). pCloud = storage + apps; a bucket = storage only, used via rclone/Cyberduck/the provider console, or an app you build. To make Sai Photos read from a bucket we must add an **S3/WebDAV storage adapter** (backend today is pCloud-only), and optionally host the backend on a server (Cloudflare Workers / small VPS / Lambda) so it is always-on. That work is **not started** and stays on hold.
+
+## 11. Sai AI (standalone app, v1.0.0) — started 17 October 2026
+
+- **Location:** `Sai Photos/Sai AI/` (own Gradle project; `applicationId`/namespace `com.saireddy.saiai`, versionCode 1, versionName `1.0.0`).
+- **Toolchain:** AGP `8.9.2`, Gradle `8.13`, Kotlin plugin `2.4.0` (pulled by `litertlm-android 0.17.1`), `compileSdk=35`, `minSdk=26`, `targetSdk=35`, release debug-signed, `largeHeap`. `kotlin { compilerOptions { jvmTarget = JVM_17 } }` — Kotlin 2.4 rejects `kotlinOptions`. Build: `"$SAI_ANDROID_GRADLE_BIN" --no-daemon -p . :app:assembleRelease` with `SAI_ANDROID_BUILD_DIR=/tmp/sai-ai-build`.
+- **Deps:** `com.google.ai.edge.litertlm:litertlm-android:0.17.1`, `com.squareup.okhttp3:okhttp:4.12.0`.
+- **Brains:** offline on-device LiteRT-LM (`LlmEngine.kt`) using `Engine.setNativeMinLogSeverity`, `EngineConfig(modelPath, backend=Backend.CPU(), cacheDir)`, `createConversation(ConversationConfig(systemInstruction=Contents.of(prompt)))`, `sendMessageAsync(text, MessageCallback)`. Extract text with `message.contents.toString()` — `Message` has **no** `.text`. Cloud brain: OpenRouter free tier, `baseUrl=https://openrouter.ai/api/v1`, `model=deepseek/deepseek-v4-flash:free` (OpenAI-compatible function calling drives the agent).
+- **UI:** WebView, 5 tabs (chat/photos/models/agent/settings), same bridge conventions as Sai Photos (`SaiNative.request(id, action, bodyJson)`, `saiNativeReply`, `saiAIEvent`). Photos tab shows a pCloud connect UI + search grid; agent tools include `search_pcloud_photos` and `open_in_saiphotos`.
+- **Photos + deep links:** copied pCloud client (`PCloudApi/PCloudOAuth/Credentials/MediaRules`, package-renamed) and added `connected()`/`disconnect()`. Bridge actions: `pcloud-start/token/status/disconnect/library/thumb`, `open-in-saiphotos`, `pcloud-tool`. Manifest has `<queries>` for `com.saiphotos.mobile` (Android 11+ package visibility) and a `pcloud-oauth://com.saiphotos` intent-filter. Deep links into Sai Photos use `saiphotos://open?...` (v1.28.6 API).
+- **Model catalog (HF `litert-community`):** `qwen3-0.6b` default (497,516,544 B, ungated Apache-2.0), `qwen2.5-1.5b` (1,597,913,616 B, ungated), `gemma3-1b` (~584 MB gated), `gemma4-e2b` (~2,588 MB).
+- **Blocker:** emulator `emulator-5554` (arm64, Android 15/SDK 35) exposes `svei8mm` but not plain NEON `i8mm` → LiteRT `nativeCreateEngine` raises `SIGILL`. API usage is correct; on-device inference must be validated on the user's real Samsung arm64 device. Model **download** is verified end-to-end on the emulator (foreground service + live progress). Emulator also has no pCloud account, so live pCloud search/library/thumbnails are only error-path verified.
+- **Regression (v1.0.0):** 15/15 core CDP checks + 9/9 Photos/pCloud/deep-link CDP checks on emulator; media-permission agent tools verified (`list_albums`, `list_photos`, `photo_info`).
+
 

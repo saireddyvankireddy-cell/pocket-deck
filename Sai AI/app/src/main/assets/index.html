@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sai AI</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header>
+  <div class="brand"><span class="spark"></span><strong>Sai AI</strong></div>
+  <div class="chips" id="chips"></div>
+</header>
+<main id="view"></main>
+<nav id="tabs">
+  <button data-tab="chat" class="on"><span>💬</span>Chat</button>
+  <button data-tab="photos"><span>📷</span>Photos</button>
+  <button data-tab="models"><span>🧠</span>Models</button>
+  <button data-tab="agent"><span>🖐</span>Agent</button>
+  <button data-tab="settings"><span>⚙</span>Settings</button>
+</nav>
+<dialog id="confirm">
+  <h3 id="confirmTitle">Confirm</h3>
+  <p id="confirmBody"></p>
+  <div class="actions"><button id="confirmNo" class="ghost">Cancel</button><button id="confirmYes" class="primary">Allow</button></div>
+</dialog>
+<script src="app.js"></script>
+</body>
+</html>

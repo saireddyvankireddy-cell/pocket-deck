@@ -21,6 +21,8 @@ class MainActivity:Activity() {
     private var uploadOwner=""
     private var eraser:EraseEngine?=null
     private var speechRecognizer:android.speech.SpeechRecognizer?=null
+    private var pageReady=false
+    private var pendingDeepLink:String?=null
 
     private var lockPending=false
     private var lockReply:String?=null
@@ -80,7 +82,7 @@ class MainActivity:Activity() {
         web.setPadding(0,0,0,0)
         web.setOnApplyWindowInsetsListener { view,insets -> view.setPadding(insets.systemWindowInsetLeft,insets.systemWindowInsetTop,insets.systemWindowInsetRight,insets.systemWindowInsetBottom);insets }
         setContentView(web)
-        web.settings.apply { javaScriptEnabled=true;domStorageEnabled=true;allowFileAccess=false;allowContentAccess=false;setAllowFileAccessFromFileURLs(false);setAllowUniversalAccessFromFileURLs(false);mixedContentMode=WebSettings.MIXED_CONTENT_NEVER_ALLOW;mediaPlaybackRequiresUserGesture=false;userAgentString += " SaiPhotosAndroid/1.28.5" }
+        web.settings.apply { javaScriptEnabled=true;domStorageEnabled=true;allowFileAccess=false;allowContentAccess=false;setAllowFileAccessFromFileURLs(false);setAllowUniversalAccessFromFileURLs(false);mixedContentMode=WebSettings.MIXED_CONTENT_NEVER_ALLOW;mediaPlaybackRequiresUserGesture=false;userAgentString += " SaiPhotosAndroid/1.28.6" }
         web.addJavascriptInterface(Bridge(),"SaiNative")
         web.webChromeClient=object:WebChromeClient(){override fun onConsoleMessage(message:ConsoleMessage):Boolean { if(message.messageLevel()==ConsoleMessage.MessageLevel.ERROR)android.util.Log.w("SaiPhotosUI",message.message().take(500));return true }}
         web.webViewClient=object:WebViewClient() {
@@ -104,7 +106,7 @@ class MainActivity:Activity() {
                     }
                 }catch(e:CloudError){errorResponse(e.status,e.message?:"pCloud request failed.")}catch(_:Exception){errorResponse(502,"Request failed. Check your internet and pCloud connection.")}
             }
-            override fun onPageFinished(view:WebView,url:String){if(intent.getBooleanExtra("showQueue",false)){intent.removeExtra("showQueue");view.evaluateJavascript("window.saiMediaAction?.('queue',0)",null)}}
+            override fun onPageFinished(view:WebView,url:String){pageReady=true;pendingDeepLink?.let{queued->pendingDeepLink=null;if(!isFinishing&&!isDestroyed)view.evaluateJavascript(queued,null)};if(intent.getBooleanExtra("showQueue",false)){intent.removeExtra("showQueue");view.evaluateJavascript("window.saiMediaAction?.('queue',0)",null)}}
             override fun onRenderProcessGone(view:WebView,detail:RenderProcessGoneDetail):Boolean {
                 rendererCrashes++
                 try{api.ai.stopAll()}catch(_:Exception){}
@@ -117,8 +119,9 @@ class MainActivity:Activity() {
         if(lockPrefs.getBoolean("app-lock",false)){web.visibility=View.INVISIBLE;window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)}
         web.loadUrl(if(recovered)"$origin/?recovered=1" else "$origin/")
         handleAuthCallback(intent.data)
+        handleDeepLink(intent.data)
     }
-    override fun onNewIntent(newIntent:android.content.Intent){super.onNewIntent(newIntent);intent=newIntent;if(newIntent.getBooleanExtra("showQueue",false))web.evaluateJavascript("window.saiMediaAction?.('queue',0)",null);handleAuthCallback(newIntent.data)}
+    override fun onNewIntent(newIntent:android.content.Intent){super.onNewIntent(newIntent);intent=newIntent;if(newIntent.getBooleanExtra("showQueue",false))web.evaluateJavascript("window.saiMediaAction?.('queue',0)",null);handleAuthCallback(newIntent.data);handleDeepLink(newIntent.data)}
     private fun handleAuthCallback(uri:Uri?){
         if(!PCloudOAuth.isCallback(uri))return
         val callback=uri?:return
@@ -131,6 +134,17 @@ class MainActivity:Activity() {
                 runOnUiThread{if(!isFinishing&&!isDestroyed)web.evaluateJavascript("window.saiAuthError?.(${JSONObject.quote(e.message?:"pCloud login could not be completed. Tap Connect pCloud to try again.")})",null)}
             }
         }
+    }
+    private fun handleDeepLink(uri:Uri?){
+        if(uri==null||uri.scheme!="saiphotos"||uri.host!="open")return
+        val payload=JSONObject()
+        for(key in listOf("view","q","query","album","person","photo")){val value=uri.getQueryParameter(key);if(!value.isNullOrBlank())payload.put(key,value.take(200))}
+        dispatchDeepLink(payload)
+    }
+    private fun dispatchDeepLink(payload:JSONObject){
+        val script="window.saiDeepLink&&window.saiDeepLink(${JSONObject.quote(payload.toString())})"
+        if(!pageReady){pendingDeepLink=script;return}
+        if(!isFinishing&&!isDestroyed)web.evaluateJavascript(script){result->android.util.Log.i("SaiPhotosUI","Deep link: "+script.take(180)+" -> "+result)}
     }
     inner class Bridge {
         @JavascriptInterface fun ready(){try{bootPrefs().edit().putInt("boot-attempts",0).apply()}catch(_:Exception){}}
