@@ -18,7 +18,7 @@ class GalleryWorkflowTest {
    """)
    for(i in 0..70){if(eval("document.querySelectorAll('#photoGrid [data-photo-id]').length")=="3")break;Thread.sleep(100)}
    assertEquals("Mock library must load","3",eval("document.querySelectorAll('#photoGrid [data-photo-id]').length"))
-   assertEquals("Navigation labels must remain visible and accessible","true",eval("['Library','Albums','Favorites','Search'].every(label=>[...document.querySelectorAll('#photoNavigation button:not([hidden])')].some(b=>b.getAttribute('aria-label')===label&&b.textContent===label&&getComputedStyle(b.querySelector('span')).display!=='none'))"))
+   assertEquals("Navigation labels must remain visible and accessible","true",eval("[['Library','Library'],['Albums','Albums'],['Music','Music'],['Search','Search'],['AI assistant','AI']].every(([aria,text])=>[...document.querySelectorAll('#photoNavigation button:not([hidden])')].some(b=>b.getAttribute('aria-label')===aria&&b.textContent===text&&getComputedStyle(b.querySelector('span')).display!=='none'))"))
    eval("document.getElementById('navSearch').click();")
    assertEquals("Search navigation opens discovery","Search",eval("document.getElementById('galleryPageTitle').textContent").trim('"'))
    eval("document.getElementById('navPhotos').click();")

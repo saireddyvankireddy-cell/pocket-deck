@@ -512,3 +512,9 @@ button:active{transform:scale(.965)}
 @keyframes sai-rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 .ai-bubble,.collection-card,.discovery-chip,.mini-player,.ai-suggest-row{animation:sai-rise .22s ease}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* v1.28.1 — lighter typography and Spotify-style music touches */
+h1,h2,h3,h4,h5,b,strong,summary{font-weight:600}
+button,.primary,.nav-label,.music-sections button,.photo-sections button{font-weight:500}
+.mini-player .mini-open span{font-weight:500}
+.mini-player .mini-eyebrow{font-weight:500}
