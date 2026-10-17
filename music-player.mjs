@@ -268,6 +268,7 @@ export class MusicPlayer {
     const duration=Number.isFinite(audio.duration)?audio.duration:0;
     bar.max=String(Math.max(1,Math.round(duration)));bar.value=String(Math.min(duration,audio.currentTime||0));bar.disabled=!duration||!this.current;
     const label=$('seekTime');if(label)label.textContent=formatTime(audio.currentTime)+' / '+formatTime(duration);
+    const fill=$('miniProgress')?.firstElementChild;if(fill)fill.style.width=((duration?Math.min(100,Math.max(0,(audio.currentTime||0)/duration*100)):0)).toFixed(1)+'%';
   }
   previous(){if($('audio').currentTime>3){$('audio').currentTime=0;this.savePosition();return;}const track=this.allTracks().get(previousTrackId(this.queue,this.current?.id,this.repeat));if(track)this.play(track);}
   savePosition(position){if(!this.current||!this.library.account)return;this.lastSavedAt=Date.now();const time=position===undefined?$('audio').currentTime:position;if(Number.isFinite(time))this.library.change({type:'music-position',track:this.current,position:Math.max(0,Math.min(86400,time))});}
@@ -295,7 +296,7 @@ export class MusicPlayer {
     $('toggleMusic').textContent=audio.paused?'▶':'Ⅱ';$('toggleMusic').disabled=!this.library.account||(!has&&!this.tracks().length&&!meta.musicResume);
     $('previousSong').disabled=!has;$('nextSong').disabled=!has||!this.hasNextTrack();
     const mini=$('miniPlayer');
-    if(mini){mini.hidden=!has||this.fullscreen||!$('musicPanel').hidden||$('player')?.classList.contains('is-fullscreen');}
+    if(mini){mini.hidden=!has||this.fullscreen||$('player')?.classList.contains('is-fullscreen');}
     if(has){$('miniPlay').textContent=audio.paused?'▶':'Ⅱ';$('miniPrev').disabled=false;$('miniNext').disabled=!this.hasNextTrack();$('miniTitle').textContent=this.current.name;$('miniArt').textContent=(this.current.name||'♪').trim().slice(0,1).toUpperCase()||'♪';$('playerHeading').textContent=this.current.name;}
     this.seekUI();
     $('shuffleMusic').setAttribute('aria-pressed',String(this.shuffle));$('repeatMusic').textContent='Repeat: '+({off:'Off',all:'All',one:'One'})[this.repeat];

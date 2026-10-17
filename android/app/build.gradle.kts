@@ -5,7 +5,7 @@ android {
     namespace = "com.saiphotos.mobile"
     compileSdk = 35
     testBuildType = "release"
-    defaultConfig { applicationId = "com.saiphotos.mobile"; minSdk = 26; targetSdk = 35; versionCode = 231; versionName = "1.28.0"; testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"; ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") } }
+    defaultConfig { applicationId = "com.saiphotos.mobile"; minSdk = 26; targetSdk = 35; versionCode = 232; versionName = "1.28.1"; testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"; ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") } }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
     // Reuse the existing personal-install identity so updates preserve device data.

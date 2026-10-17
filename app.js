@@ -520,7 +520,7 @@ function render() {
   updateAiStatusPill();
 }
 if(window.SAI_MUSIC_ENABLED){
- document.body.classList.add('music-enabled');const nav=$('photoNavigation'),music=document.createElement('button');music.id='navMusic';music.setAttribute('aria-label','Music');music.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5.6l10-2.1V16"/><circle cx="6.6" cy="18" r="2.5"/><circle cx="16.6" cy="16" r="2.5"/></svg><span class="nav-label">Music</span>';nav.insertBefore(music,$('navFavorites'));music.onclick=()=>{gallerySelection.mode=false;gallerySelection.selected.clear();gallerySelection.refresh();setTab('audio');if(musicPlayer.current)musicPlayer.openFullscreen();window.scrollTo({top:0,behavior:'smooth'});};
+ document.body.classList.add('music-enabled');const nav=$('photoNavigation'),music=document.createElement('button');music.id='navMusic';music.setAttribute('aria-label','Music');music.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5.6l10-2.1V16"/><circle cx="6.6" cy="18" r="2.5"/><circle cx="16.6" cy="16" r="2.5"/></svg><span class="nav-label">Music</span>';nav.insertBefore(music,$('navSearch'));music.onclick=()=>{gallerySelection.mode=false;gallerySelection.selected.clear();gallerySelection.refresh();setTab('audio');window.scrollTo({top:0,behavior:'smooth'});};
  nav.addEventListener('click',event=>{const button=event.target.closest('button');if(button&&button.id!=='navMusic')setTab('photo');},true);
 }
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});

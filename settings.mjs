@@ -1,7 +1,7 @@
 import {photoCacheInfo,clearMirror} from './photo-cache.mjs';
 import {sharedIndexProgress,sharedIndexLabel,formatSize} from './photo-tools.mjs';
 import {PROVIDERS,providerById,fetchModels,pickModel,chat,keyStorageId,cleanKey} from './ai-providers.mjs';
-export const APP_VERSION = '1.28.0';
+export const APP_VERSION = '1.28.1';
 export function indexCoverage(library) {
   const photos=library.photos().filter(photo=>photo.mediaType!=='video');
   const current=(map,photo)=>map?.[photo.id]?.version===photo.version;
@@ -57,6 +57,11 @@ const limitations = [
   'Large record histories still need compaction and optimization. Sync currently accepts at most 90,000 known records.',
 ];
 export const RELEASES = [
+  {version:'1.28.1',date:'17 October 2026',time:'09:37',title:'Outfit everywhere, five clean tabs and a Spotify-style music tab',changes:['The whole app now uses the Outfit font — the rounded modern face that already styled the headings now styles every screen, matching the orange brand.',
+  'The bottom bar is down to five: Library, Albums, Music, Search and AI. Favourites is still one tap away — the ♡ Favorites section inside Library and the menu.',
+  'The Music tab now works like Spotify: when a song is playing, a now-playing card sits at the top of the Music tab with artwork, the song name, previous / play / next / queue and a live progress line. Tap the card for the full-screen player. The floating bar that used to sit across the top of the other screens is gone.',
+  'Opening the ✦ AI tab now puts the ask bar right at the top, so you can type a question the moment you arrive. Suggestions, tools and the conversation follow below.',
+  'Everything from v1.28.0 is unchanged: full-quality viewing, opt-in song downloads, reliable hearts, assistant actions and the orange theme.']},
   {version:'1.28.0',date:'17 October 2026',time:'09:09',title:'Full-quality viewing, opt-in song downloads and smarter music controls',changes:['Photos now always open in full quality: the viewer keeps the sharp original instead of falling back to the blurry preview, and full-quality copies are cached on this device (up to 24) so they reopen instantly without re-downloading. Settings → Free up space has the two new switches — open in full quality (on) and preload while charging on Wi‑Fi (off, never uses cellular).',
   'Playing or skipping songs no longer downloads anything. Offline song caching is now opt-in: “Keep songs I play offline” is off by default, and the Download offline button still saves a song whenever you want it. Anything already saved stays until you use Clear mirror downloads.',
   'Hearts are now reliable: when a favourite cannot reach pCloud it is kept on the phone and retried automatically — offline, across restarts or overnight — and then merged with pCloud’s stars both ways. If a heart lands on a photo pCloud will not accept, the viewer now says exactly why.',

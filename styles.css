@@ -54,7 +54,7 @@ header>div{min-width:140px}@media(max-width:760px){.player.is-expanded{max-heigh
 
 /* v1.11: original Photos-inspired presentation, with shared pCloud workflows. */
 :root{--photo-accent:#f97316;--photo-muted:#6d6d72;--photo-surface:#f2f2f7}
-body{font-family:'Inter Variable',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+body{font-family:'Outfit Variable',Outfit,'Inter Variable',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
 .photos-only{background:#fff;color:#1c1c1e}.photos-only .shell{padding:18px 12px 112px}.photos-only header{align-items:center;gap:12px}.photos-only h1{font-size:34px;letter-spacing:-1.1px;color:inherit}.photos-only header button,.photos-only .gallery-toolbar button{color:var(--photo-accent);border:0;background:var(--photo-surface);border-radius:22px;font-weight:600;min-height:44px}.photos-only .tools input{background:#efeff0;border:0;border-radius:12px;color:#1c1c1e;font-size:17px}.photos-only .gallery-page-title{font-size:34px;letter-spacing:-1px;color:inherit}.photos-only .gallery-toolbar select{background:var(--photo-surface);border:0;color:var(--photo-accent);border-radius:20px;font-size:14px}.photos-only .photo-grid{gap:2px}.photos-only .photo-tile,.photos-only .photo-card{border-radius:0}.photos-only .photo-tile span{font-size:11px;line-height:1.5;color:#636366;padding:3px 4px}.photos-only .photo-day{font-size:20px;font-weight:700;color:inherit;margin:24px 0 9px}.photos-only .collection-card{background:var(--photo-surface);border:0;border-radius:18px;overflow:hidden}.photos-only .discovery-chip,.photos-only .discovery-photo{background:var(--photo-surface);color:inherit}.photos-only .discovery-muted{color:var(--photo-muted)}
 .photos-only #photoNavigation{left:0;right:0;bottom:0;transform:none;width:auto;gap:0;justify-content:space-around;border-radius:0;border-top:1px solid #8e8e932e;background:#f9f9fbef;box-shadow:none;padding:9px 8px max(12px,env(safe-area-inset-bottom))}.photos-only #photoNavigation button{flex:1;max-width:110px;border-radius:14px;gap:5px;padding:7px 3px;min-height:54px;color:#737378}.photos-only #photoNavigation button span.nav-label{display:block;font-size:11px;font-weight:600;line-height:1.2}.photos-only #photoNavigation [aria-current=true]{background:transparent;color:var(--photo-accent)}.photos-only #photoNavigation svg{width:25px;height:25px}.photos-only .primary,.gallery-sheet .primary{background:var(--photo-accent);border-color:var(--photo-accent);color:white}.photos-only .selection-toolbar{background:#e8f2ff;border-color:#a4c8fa;border-radius:16px}.photos-only .selection-toolbar p{color:#385d85}.photo-card.is-selected,.cleanup-photo.is-selected{outline-color:var(--photo-accent)}.is-selected::after{background:var(--photo-accent)}
 .photos-only #settingsDialog{background:var(--photo-surface);color:#1c1c1e;padding:20px 16px}.photos-only #settingsDialog .settings-header{background:var(--photo-surface)}.photos-only #settingsDialog .settings-card{background:white;color:inherit;border:0;border-radius:14px}.photos-only #settingsDialog select{background:var(--photo-surface);color:inherit;border:0}.photos-only .settings-menu{gap:1px;background:white;border-radius:14px;overflow:hidden}.photos-only .settings-menu button{background:white;border:0;border-bottom:1px solid #8e8e9329;border-radius:0;min-height:56px;text-align:left;font-size:17px;font-weight:500;color:inherit;padding:16px}.photos-only .settings-menu button::after{content:'›';float:right;color:#8e8e93}.photos-only .settings-menu button:last-child{border-bottom:0}.photos-only #settingsIndexCoverage{font-size:13px;line-height:1.7}.photos-only .gallery-sheet{background:var(--photo-surface);color:#1c1c1e}.photos-only #viewer{background:#000;color:white}.photos-only #viewer .viewer-header,.photos-only #viewer .viewer-footer{background:#121214}.photos-only #viewer button{color:#64a9ff}.photos-only #viewer .danger{color:#ff6961}.photos-only #viewerFavorite[aria-pressed=true]{color:#ff375f}.photos-only .cloud-sync-badge{color:var(--photo-accent)}
@@ -149,7 +149,7 @@ body.theme-dark .primary{background:#fff;border-color:#fff;color:#000}
 #viewer .viewer-detail-row{display:flex;justify-content:space-between;gap:16px;margin:0;padding:9px 0;border-bottom:1px solid #ffffff1a;font-size:14px;color:#ffffffcc}
 #viewer .viewer-detail-row span:last-child{color:#fff;text-align:right;word-break:break-word}
 #viewer .viewer-detail-row select{max-width:60%;background:#252525;color:#fff;border:1px solid #ffffff29;border-radius:8px;padding:6px 8px}
-.photos-only{font-family:"Inter Variable",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:14px}
+.photos-only{font-family:"Outfit Variable",Outfit,"Inter Variable",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:14px}
 .photos-only h1,.photos-only h2,.photos-only h3,.photos-only .gallery-page-title,.photos-only .photo-day{font-family:"Outfit Variable",Outfit,-apple-system,sans-serif}
 .photos-only header h1{font-size:20px;line-height:26px;font-weight:600}
 .photos-only .gallery-page-title{font-size:24px;font-weight:600;letter-spacing:-.3px;margin:12px 0}
@@ -236,7 +236,7 @@ body.theme-dark .primary{background:#fff;border-color:#fff;color:#000}
 #saiToast.show{opacity:1;transform:translateX(-50%)}
 
 /* ===== Sai Photos interface (v1.22) — switchable via Settings > Appearance ===== */
-html[data-ui=sai] body{--sai-grad:linear-gradient(135deg,#ff9d2e,#f97316 55%,#ff6a00);--sai-ink:#17152b;--sai-muted:#6f6b8a;--sai-line:#e6e2f3;--sai-card:#fff;--sai-shadow:0 8px 24px rgba(120,53,15,.10);font-family:'Inter Variable',-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',Roboto,sans-serif}
+html[data-ui=sai] body{--sai-grad:linear-gradient(135deg,#ff9d2e,#f97316 55%,#ff6a00);--sai-ink:#17152b;--sai-muted:#6f6b8a;--sai-line:#e6e2f3;--sai-card:#fff;--sai-shadow:0 8px 24px rgba(120,53,15,.10);font-family:'Outfit Variable',Outfit,'Inter Variable',-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',Roboto,sans-serif}
 html[data-ui=sai] .photos-only{background:#f7f6fc;color:var(--sai-ink)}
 html[data-ui=sai] body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(900px 480px at 12% -10%,rgba(249,115,22,.16),transparent 60%),radial-gradient(820px 520px at 108% -6%,rgba(255,93,158,.13),transparent 55%),radial-gradient(940px 700px at 50% 118%,rgba(68,206,255,.13),transparent 62%)}
 html[data-ui=sai] .photos-only .shell{padding:18px 14px 132px}
@@ -468,12 +468,17 @@ html[data-ui=sai] #saiToast{backdrop-filter:none;-webkit-backdrop-filter:none;ba
 .ai-key-links{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 .ai-key-links button{font-size:12px;padding:8px 12px;min-height:36px;border-radius:999px;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 /* v1.28.0 —global mini player (top, app-wide) */
-.mini-player{position:fixed;top:calc(8px + env(safe-area-inset-top));left:12px;right:12px;z-index:24;display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:16px;background:#15231cf2;color:#edf5ef;box-shadow:0 12px 28px #0004;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
-.mini-player .mini-art{width:36px;height:36px;border-radius:10px;background:#32c676;color:#092010;display:grid;place-items:center;font-size:19px;flex:none}
-.mini-player .mini-open{flex:1;min-width:0;background:transparent;border:0;color:inherit;text-align:left;padding:4px;min-height:40px}
-.mini-player .mini-open span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
-.mini-player .mini-controls{display:flex;gap:4px}
-.mini-player .mini-controls button{background:#26362f;border:0;color:#d7e5db;min-width:40px;min-height:40px;padding:6px;border-radius:12px;font-size:16px}
+.mini-player{position:relative;display:flex;align-items:center;gap:10px;margin:10px 0 14px;padding:10px 12px 16px;border-radius:18px;background:linear-gradient(135deg,#ff9d2e,#f97316 55%,#ff6a00);color:#fff;box-shadow:0 10px 24px rgba(249,115,22,.32)}
+.mini-player .mini-art{width:46px;height:46px;border-radius:12px;background:rgba(255,255,255,.22);color:#fff;display:grid;place-items:center;font-size:22px;flex:none}
+.mini-player .mini-open{flex:1;min-width:0;background:transparent;border:0;color:#fff;text-align:left;padding:2px 4px;min-height:44px}
+.mini-player .mini-open .mini-eyebrow{display:block;font-size:10px;letter-spacing:1.6px;opacity:.85;margin-bottom:2px}
+.mini-player .mini-open span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:15px;font-weight:600}
+.mini-player .mini-controls{display:flex;gap:6px;align-items:center}
+.mini-player .mini-controls button{background:transparent;border:0;color:#fff;min-width:38px;min-height:38px;padding:4px;border-radius:50%;font-size:17px}
+.mini-player .mini-controls button:disabled{opacity:.5}
+#miniPlay{background:#fff;color:#f97316;font-weight:700}
+.mini-progress{position:absolute;left:12px;right:12px;bottom:7px;height:3px;border-radius:3px;background:rgba(255,255,255,.3);overflow:hidden}
+.mini-progress i{display:block;height:100%;width:0;background:#fff;border-radius:3px;transition:width .2s linear}
 body:has(#miniPlayer:not([hidden])) .shell{padding-top:84px}
 /* v1.28.0 — Spotify-style full-screen player + seek bar */
 .player-top{display:none}
