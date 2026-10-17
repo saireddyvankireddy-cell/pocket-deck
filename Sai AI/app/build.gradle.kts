@@ -5,7 +5,7 @@ android {
     namespace = "com.saireddy.saiai"
     compileSdk = 35
     testBuildType = "release"
-    defaultConfig { applicationId = "com.saireddy.saiai"; minSdk = 26; targetSdk = 35; versionCode = 1; versionName = "1.0.0"; testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner" }
+    defaultConfig { applicationId = "com.saireddy.saiai"; minSdk = 26; targetSdk = 35; versionCode = 2; versionName = "1.0.1"; testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner" }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     // Personal sideload build: reuse the local debug signing identity, no secrets in source.
     buildTypes { release { isMinifyEnabled = false; isDebuggable = false; signingConfig = signingConfigs.getByName("debug") } }

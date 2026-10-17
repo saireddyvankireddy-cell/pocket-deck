@@ -52,14 +52,25 @@ class MainActivity : Activity() {
         web = WebView(this)
         WebView.setWebContentsDebuggingEnabled(true)
         if (Build.VERSION.SDK_INT >= 30) window.setDecorFitsSystemWindows(false)
-        web.setOnApplyWindowInsetsListener { v, insets -> v.setPadding(insets.systemWindowInsetLeft, insets.systemWindowInsetTop, insets.systemWindowInsetRight, insets.systemWindowInsetBottom); insets }
-        setContentView(web)
-        web.post { web.requestApplyInsets() }
+        // A WebView ignores its own padding for page rendering, so insets are applied to a wrapper.
+        val root = android.widget.FrameLayout(this)
+        root.addView(web, android.widget.FrameLayout.LayoutParams(android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.MATCH_PARENT))
+        root.setOnApplyWindowInsetsListener { v, insets ->
+            if (Build.VERSION.SDK_INT >= 30) {
+                val bars = insets.getInsets(android.view.WindowInsets.Type.systemBars() or android.view.WindowInsets.Type.displayCutout())
+                v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            } else {
+                v.setPadding(insets.systemWindowInsetLeft, insets.systemWindowInsetTop, insets.systemWindowInsetRight, insets.systemWindowInsetBottom)
+            }
+            insets
+        }
+        setContentView(root)
+        root.post { root.requestApplyInsets() }
         web.settings.apply {
             javaScriptEnabled = true; domStorageEnabled = true; allowFileAccess = false; allowContentAccess = false
             setAllowFileAccessFromFileURLs(false); setAllowUniversalAccessFromFileURLs(false)
             mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW; mediaPlaybackRequiresUserGesture = false
-            userAgentString += " SaiAIAndroid/1.0.0"
+            userAgentString += " SaiAIAndroid/1.0.1"
         }
         web.addJavascriptInterface(Bridge(), "SaiNative")
         web.webChromeClient = object : WebChromeClient() {

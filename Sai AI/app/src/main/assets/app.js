@@ -8,7 +8,7 @@ function toast(m) { const t = $(".toast") || h("div", { class: "toast" }); t.tex
 const fmtBytes = b => { b = Number(b) || 0; const g = b / 1e9; return g >= 1 ? g.toFixed(1) + " GB" : (b / 1e6).toFixed(0) + " MB"; };
 const fmtTime = ts => new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
-let state = { models: [], active: null, systemPrompt: "", temperature: 0.7, hasHfToken: false, provider: { baseUrl: "", model: "", hasKey: false }, engine: {}, photoPermission: false, saiphotos: false, pcloud: false, version: "1.0.0" };
+let state = { models: [], active: null, systemPrompt: "", temperature: 0.7, hasHfToken: false, provider: { baseUrl: "", model: "", hasKey: false }, engine: {}, photoPermission: false, saiphotos: false, pcloud: false, version: "1.0.1" };
 let tab = "chat", mode = localStorage.getItem("sai-mode") || "local";
 let agentMode = localStorage.getItem("sai-agent") !== "0";
 let confirmDestructive = localStorage.getItem("sai-confirm") !== "0";
@@ -49,7 +49,7 @@ window.saiAIEvent = ev => {
   else if (ev.type === "download") { onDownload(ev.payload); }
   else if (ev.type === "pcloud") { if (ev.state === "connected") toast("pCloud connected"); else if (ev.state === "error") toast(ev.error || "pCloud login failed"); refreshState().then(() => { if (tab === "photos") renderPhotos(); }); }
 };
-function finishStream() { if (streamEl) { streamEl.classList.remove("typing"); const s = current(); s.messages.push({ role: "ai", text: streamText }); saveSessions(); } streamEl = null; streamText = ""; }
+function finishStream() { if (streamEl) { streamEl.classList.remove("typing"); const s = current(); if (!streamText.trim()) { streamEl.textContent = "⚠️ The model returned no text. Open Models and tap Activate again, or try a different model."; } else { s.messages.push({ role: "ai", text: streamText }); saveSessions(); } } streamEl = null; streamText = ""; }
 function engineEvent(ev) { refreshState(); if (ev.state === "ready") toast("Model ready — chat offline now."); else if (ev.state === "error") toast("Model error: " + (ev.error || "unknown")); }
 function onDownload(p) { const t = current(); const onModels = tab === "models"; refreshState().then(() => { if (onModels) renderModels(); }); const m = state.models.find(x => x.id === p.id); if (p.done) toast((m ? m.name : p.id) + " downloaded"); else if (p.state && p.state.error) toast("Download failed: " + p.state.error); }
 

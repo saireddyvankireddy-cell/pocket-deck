@@ -69,7 +69,7 @@ Harness setup after a release: `adb install -r ~/Downloads/Sai-Photos-Android-<v
 ## 6. Current status (latest release)
 
 - **Sai Photos — Version: v1.28.6** (deep-link API for Sai AI). APK: `~/Downloads/Sai-Photos-Android-Latest.apk` = `Sai-Photos-Android-v1.28.6.apk` (221,539,004 bytes, SHA-256 `c19f9699bb52ecd255cbe19f1c9db6d53f4d6abc76833128facca9feedb4fee0`).
-- **Sai AI — Version: v1.0.0** (first release, standalone app, package `com.saireddy.saiai`). APK: `~/Downloads/Sai-AI-Android-Latest.apk` = `Sai-AI-Android-v1.0.0.apk` (50,390,122 bytes, SHA-256 `74462c924a1ec66fa385bb2a3e79636af36a8f7c7a68d2542ccca9f28f365c05`).
+- **Sai AI — Version: v1.0.1** (standalone app, package `com.saireddy.saiai`; v1.0.0 = first release, v1.0.1 fixes the status-bar overlap). APK: `~/Downloads/Sai-AI-Android-Latest.apk` = `Sai-AI-Android-v1.0.1.apk` (SHA-256 `b6edad198a9d677024acc7282921b455b631d4da478d9329e4002130c4b5f4fc`).
 - Direct download (Samsung on the same Wi-Fi): **http://192.168.88.6:8099/Sai-Photos-Android-Latest.apk** and **http://192.168.88.6:8099/Sai-AI-Android-Latest.apk** — served by `python3 -m http.server 8099 --directory ~/Downloads` on the Mac. Stops when the Mac sleeps/reboots; restart the command if the link dies.
 - Regression for v1.28.6: 115 unit/contract (incl. 3 new deep-link contract tests), 25 Android, 104 + 13 + 19 harness checks, deep-link handler verified on emulator (albums/favorites/photos/search/home → ok, missing album/person/photo → clear errors, cold-start queue applies). Sai AI: 15 core CDP + 9/9 Photos/pCloud/deep-link CDP checks. 0 crashes/ANRs/JS errors.
 
