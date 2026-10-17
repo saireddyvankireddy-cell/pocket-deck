@@ -7,7 +7,8 @@ import { pipeline } from 'node:stream/promises';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 try { process.loadEnvFile(join(root, '.env')); } catch (error) { if (error.code !== 'ENOENT') throw error; }
-const assets = new Set(['index.html', 'styles.css', 'app.js', 'sw.js', 'manifest.webmanifest', 'icon.svg', 'settings.mjs', 'smart-features.mjs', 'photo-tools.mjs', 'favorite-queue.mjs', 'photo-cleanup.mjs', 'cloud-sync.mjs', 'photo-state.mjs', 'photo-ai.mjs', 'photo-cache.mjs', 'photo-library.mjs', 'music-player.mjs', 'music-state.mjs', 'gallery-controls.mjs', 'ai-providers.mjs', 'assistant.mjs']);
+const assets = new Set(['index.html', 'styles.css', 'app.js', 'ui-boot.js', 'sw.js', 'manifest.webmanifest', 'icon.svg', 'settings.mjs', 'smart-features.mjs', 'photo-tools.mjs', 'favorite-queue.mjs', 'photo-cleanup.mjs', 'photo-editor.mjs', 'cloud-sync.mjs', 'photo-state.mjs', 'photo-ai.mjs', 'photo-cache.mjs', 'photo-library.mjs', 'music-player.mjs', 'music-state.mjs', 'gallery-controls.mjs', 'ai-providers.mjs', 'assistant.mjs', 'fonts/inter-vf.woff2', 'fonts/outfit-vf.woff2']);
+
 async function vendorFiles(folder, prefix = '') {
   for (const entry of await readdir(folder, { withFileTypes: true })) {
     const relative = prefix + entry.name;
@@ -16,7 +17,7 @@ async function vendorFiles(folder, prefix = '') {
   }
 }
 await vendorFiles(join(root, 'vendor'));
-const functions = new Set(['pcloud-auth', 'media-list', 'media-content', 'folders', 'photo-metadata', 'photo-delete', 'music-delete', 'photos-delete', 'photo-analysis', 'music-analysis']);
+const functions = new Set(['pcloud-auth', 'media-list', 'media-content', 'folders', 'photo-metadata', 'photo-delete', 'music-delete', 'photos-delete', 'photo-analysis', 'music-analysis', 'mac-index-claim']);
 const types = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json', '.wasm': 'application/wasm', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json' };
 const port = Number(process.env.PORT || 4173);
 const host = process.env.SAI_PHOTOS_HOST || '127.0.0.1';

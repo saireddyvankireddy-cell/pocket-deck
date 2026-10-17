@@ -305,38 +305,7 @@ html[data-ui=sai] .theme-dark .settings-muted,html[data-ui=sai] .theme-dark #sha
 /* ===== Photo sources (pCloud / Apple Photos) + polish (v1.23) ===== */
 .empty-symbol svg{width:72px;height:72px;display:inline-block}
 html[data-ui=sai] .empty-symbol{color:#8a5cff}
-.source-row{display:flex;gap:8px;align-items:center;margin:10px 0;flex-wrap:wrap}
-.source-row[hidden]{display:none}
-.source-row button{border-radius:22px;padding:10px 16px;font-size:13px;font-weight:650;min-height:40px;border:1px solid #d9dfe9;background:#fff;color:#3c3763}
-.source-row .active{background:#17834a;border-color:#17834a;color:#fff}
-html[data-ui=sai] .source-row button{border-radius:22px;background:var(--sai-card);border:1px solid var(--sai-line);color:#4b4767;box-shadow:0 3px 10px rgba(38,20,90,.05)}
-html[data-ui=sai] .source-row .active{background:var(--sai-grad);border-color:transparent;color:#fff;box-shadow:0 8px 18px rgba(249,115,22,.32)}
-html[data-ui=sai] .theme-dark .source-row button{background:#1d1936;border-color:#2c2650;color:#cfc9ee}
 #settingsAccountPage h3{margin-top:18px}
-
-/* ===== Device photos source (v1.24, Android) ===== */
-#devicePanel{display:none}
-body.device-source #devicePanel{display:block}
-body.device-source #photoGrid,body.device-source #more,body.device-source #galleryToolbar,body.device-source #selectionToolbar,body.device-source #collectionCards,body.device-source #collectionHeading,body.device-source #cleanupPanel,body.device-source #empty,body.device-source #photoControls,body.device-source #galleryDiscovery,body.device-source #galleryMemories,body.device-source #photoSearchStatus{display:none!important}
-.device-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:3px;margin-top:10px}
-.device-card{position:relative;padding:0;border:0;border-radius:3px;overflow:hidden;min-height:0;background:#e6eaf3}
-.device-card img{display:block;width:100%;aspect-ratio:1;object-fit:cover}
-#deviceStatus{color:#607087;font-size:13px;margin:8px 0}
-#loadMoreDevice{display:block;margin:14px auto}
-#deviceViewer:not([open]){display:none}
-#deviceViewer[open]{display:flex;flex-direction:column;position:fixed;inset:0;margin:0;width:100vw;height:100dvh;max-width:none;max-height:none;border-radius:0;padding:0;background:#05060c;color:#fff}
-.device-viewer-bar{display:flex;align-items:center;justify-content:space-between;padding:calc(10px + env(safe-area-inset-top)) 14px 8px}
-.device-viewer-bar button{background:#253041;color:#fff;border:0;border-radius:12px;min-height:44px;padding:8px 16px}
-#deviceViewerImage{display:block;margin:auto;max-width:100%;max-height:calc(100dvh - 180px);object-fit:contain}
-#deviceViewerTitle{margin:8px 16px 0;font-size:13px;color:#b0bcd0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.device-viewer-actions{display:flex;gap:10px;padding:10px 16px calc(12px + env(safe-area-inset-bottom))}
-.device-viewer-actions button{flex:1;border-radius:14px}
-#deviceDeleteDialog{background:#fff;color:#182435;width:420px}
-html[data-ui=sai] .device-viewer-actions button{border-radius:16px}
-html[data-ui=sai] .device-viewer-actions #deviceShare{background:var(--sai-grad);border:0;color:#fff}
-html[data-ui=sai] .device-card{border-radius:14px}
-html[data-ui=sai] .device-grid{gap:8px}
-html[data-ui=sai] .theme-dark #deviceDeleteDialog{background:#171332;color:#f1effa}
 
 
 /* ===== v1.24: full-screen viewer, GPU zoom, jank fixes ===== */
@@ -362,19 +331,6 @@ html[data-ui=sai] .theme-dark #deviceDeleteDialog{background:#171332;color:#f1ef
 html[data-ui=sai] #viewerMenu{border-radius:20px;background:rgba(20,16,44,.97);border-color:rgba(130,110,220,.3)}
 html[data-ui=sai] #viewerMenu button:active{background:rgba(120,92,255,.16)}
 
-/* device viewer: full-screen, same gestures */
-#deviceViewer[open]{display:block;position:fixed;inset:0;width:100vw;height:100dvh;max-width:none;max-height:none;margin:0;border-radius:0;padding:0;background:#05060c;color:#fff;overflow:hidden}
-.device-stage{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden;touch-action:none;overscroll-behavior:contain}
-#deviceViewerImage{max-width:100%;max-height:100%;width:auto;height:auto;transform-origin:center center;will-change:transform;user-select:none;-webkit-user-drag:none;pointer-events:none}
-#deviceMenu{position:absolute;top:calc(64px + env(safe-area-inset-top));right:12px;z-index:15;display:flex;flex-direction:column;gap:2px;min-width:210px;background:#141a26f7;border:1px solid #2a3547;border-radius:16px;padding:6px;box-shadow:0 18px 48px rgba(0,0,0,.5)}
-#deviceMenu button{display:flex;justify-content:flex-start;background:transparent;border:0;border-radius:11px;min-height:46px;padding:10px 14px;font-size:14.5px;color:#fff;text-align:left;width:100%}
-#deviceMenu .danger-item{color:#ff8fa3}
-.device-viewer-bar{background:linear-gradient(180deg,rgba(5,8,14,.72),rgba(5,8,14,0));pointer-events:none;transition:opacity .22s ease}
-.device-viewer-bar button{pointer-events:auto;width:44px;height:44px;padding:0;border-radius:50%;background:#253041;color:#fff;border:0}
-.device-viewer-footer{position:absolute;left:0;right:0;bottom:0;padding:10px 16px calc(12px + env(safe-area-inset-bottom));background:linear-gradient(0deg,rgba(5,8,14,.8),rgba(5,8,14,0));pointer-events:none;transition:opacity .22s ease}
-#deviceViewer.chrome-hidden .device-viewer-bar,#deviceViewer.chrome-hidden .device-viewer-footer{opacity:0;pointer-events:none}
-#deviceViewerTitle{margin:0;font-size:13px;color:#b0bcd0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-
 /* performance: no expensive blur passes (Sai interface) */
 html[data-ui=sai] .photos-only .photo-day{backdrop-filter:none;-webkit-backdrop-filter:none;background:linear-gradient(180deg,rgba(247,246,252,.99),rgba(247,246,252,.94))}
 html[data-ui=sai] .theme-dark .photos-only .photo-day{background:linear-gradient(180deg,rgba(19,16,40,.99),rgba(19,16,40,.93))}
@@ -386,10 +342,8 @@ html[data-ui=sai] #saiToast{backdrop-filter:none;-webkit-backdrop-filter:none;ba
 /* long lists render offscreen cheaply */
 .cleanup-group{content-visibility:auto;contain-intrinsic-size:340px}
 .collection-card{content-visibility:auto;contain-intrinsic-size:210px}
-.device-card{content-visibility:auto;contain-intrinsic-size:140px}
 
-/* v1.26.2 — compact source chips, icon song actions, Spotify-style player and queue */
-#photoSources button{min-width:42px;padding:8px 0;text-align:center;font-weight:800;letter-spacing:.5px}
+/* v1.26.2 — icon song actions, Spotify-style player and queue */
 .track-actions{flex-wrap:wrap}
 .track-actions button{min-width:42px;min-height:42px;padding:6px;font-size:17px;line-height:1;max-width:none}
 .track-actions button.active{background:#2f6b47;color:#8df3b7;border:1px solid #3fa96b}
@@ -451,10 +405,8 @@ html[data-ui=sai] #saiToast{backdrop-filter:none;-webkit-backdrop-filter:none;ba
 .theme-dark .ai-bubble.assistant{background:#232323;border-color:#383838}
 .theme-dark .ai-cloud{background:#1e2c40}
 .theme-dark #aiAskForm input{background:#232323;color:#eee;border-color:#383838}
-/* v1.28.0 — one-line source row + AI status pill */
-.source-row{display:flex;flex-wrap:nowrap;align-items:center;gap:6px;overflow:hidden}
-.source-row button{flex:none;padding:7px 14px;min-height:38px;font-size:12.5px;border-radius:999px}
-.ai-status-pill{margin-left:auto;max-width:46vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:#eef3ff;color:#2f55b8;border-color:#cddaf9}
+/* v1.28.0 — AI status pill */
+.ai-status-pill{margin-left:12px;max-width:46vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:#eef3ff;color:#2f55b8;border-color:#cddaf9}
 .theme-dark .ai-status-pill{background:#1d2740;color:#9db9ff;border-color:#33436e}
 .collection-card{overflow:hidden}
 .collection-card>strong{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

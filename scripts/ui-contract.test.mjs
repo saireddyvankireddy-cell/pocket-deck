@@ -120,3 +120,58 @@ test('merged people names show clear feedback and suggest existing names',()=>{
   const html=read('index.html');
   assert.ok(html.includes('id="nameSuggestions"'),'datalist for existing names must exist');
 });
+
+test('pCloud is the only photo source — switcher and device browser are gone',()=>{
+  const html=read('index.html');
+  assert.ok(!html.includes('id="photoSources"'),'the source switcher must be removed');
+  assert.ok(!html.includes('id="sourceDevice"')&&!html.includes('id="sourcePcloud"'),'source buttons must be removed');
+  assert.ok(!html.includes('id="devicePanel"')&&!html.includes('id="deviceViewer"')&&!html.includes('id="deviceDeleteDialog"'),'the device photo browser must be removed');
+  const tools=html.indexOf('class="tools"');
+  const pill=html.indexOf('id="aiStatusPill"');
+  assert.ok(tools>0&&pill>tools,'the AI status pill must live inside the tools row');
+  const app=read('app.js');
+  assert.ok(!app.includes('device-photos.mjs'),'app must not import the device source module');
+  assert.ok(!app.includes('switchSource')&&!app.includes('device-source'),'source switching must be removed');
+  const sw=read('sw.js');
+  assert.ok(!sw.includes('device-photos.mjs'),'the service worker must not cache a removed module');
+  const build=read('scripts/build.mjs');
+  assert.ok(!build.includes('device-photos.mjs'),'the build assets must not include a removed module');
+});
+
+test('the Mac indexing agent has a claim page, launch script and cookie-file support',()=>{
+  const claim=read('netlify/functions/mac-index-claim.mjs');
+  assert.ok(claim.includes("'localhost', '127.0.0.1', '::1'"),'claim page must only work from the Mac itself');
+  assert.ok(claim.includes('.sai-index-session'),'claim page must save the session for the agent');
+  const dev=read('scripts/dev.mjs');
+  assert.ok(dev.includes("'mac-index-claim'"),'the dev server must allow the claim endpoint');
+  const index=read('scripts/mac-index.mjs');
+  assert.ok(index.includes('SAI_SESSION_COOKIE_FILE'),'mac indexer must read the claimed session file');
+  const launch=read('scripts/mac-index-launch.sh');
+  assert.ok(launch.includes('.sai-index-session'),'the launch wrapper must wait for the claimed session');
+});
+
+test('one unreadable photo never stops Samsung indexing again',()=>{
+  const ai=read('android/app/src/main/java/com/saiphotos/mobile/LocalAI.kt');
+  assert.ok(!ai.includes('catch(e:CloudError){job.failed++;throw e}'),'a CloudError on one photo must not abort the whole pass');
+  assert.ok(ai.includes('if(e.status==401){job.stop=true;throw e}'),'only an expired sign-in may stop indexing');
+  assert.ok(ai.includes('indexing continues and retries it later'),'skipped photos must be reported as retried later');
+  assert.ok(ai.includes('indexing resumes by itself'),'the low-battery pause must promise automatic resume');
+});
+
+test('the dev server serves every service-worker asset',()=>{
+  const sw=read('sw.js');
+  const block=(sw.match(/const ASSETS = \[(.*?)\];/s)||[])[1]||'';
+  const names=[...block.matchAll(/'\.\/([^']*)'/g)].map(m=>m[1]).filter(name=>name&&!name.startsWith('vendor/'));
+  const dev=read('scripts/dev.mjs');
+  const missing=names.filter(name=>!dev.includes("'"+name+"'"));
+  assert.deepEqual(missing,[],'dev.mjs must list every sw.js asset: '+missing.join(', '));
+});
+
+test('completed pCloud indexes are skipped when folders change or return',()=>{
+  const library=read('photo-library.mjs');
+  assert.ok(library.includes('Unchanged, completed photos will be skipped'),'indexing must announce that saved indexes are restored and skipped');
+  assert.ok(library.includes('saved pCloud indexes'),'folder switching must keep saved indexes');
+  const start=library.slice(library.indexOf('async startVisualIndex'));
+  assert.ok(start.includes('this.meta.visuals')&&start.includes('known'),'the index job must send every saved visual index as known so completed photos are skipped');
+  assert.ok(library.includes('meta.visuals'),'visual indexes must persist per photo across folder changes');
+});

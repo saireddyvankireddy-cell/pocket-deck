@@ -1,6 +1,6 @@
 {
   "name": "sai-photos-ente",
-  "version": "1.28.3",
+  "version": "1.28.4",
   "edition": "ente-gallery",
   "private": true,
   "type": "module",

@@ -1,7 +1,7 @@
 import {photoCacheInfo,clearMirror} from './photo-cache.mjs';
 import {sharedIndexProgress,sharedIndexLabel,formatSize} from './photo-tools.mjs';
 import {PROVIDERS,providerById,fetchModels,pickModel,chat,keyStorageId,cleanKey} from './ai-providers.mjs';
-export const APP_VERSION = '1.28.3';
+export const APP_VERSION = '1.28.4';
 export function indexCoverage(library) {
   const photos=library.photos().filter(photo=>photo.mediaType!=='video');
   const current=(map,photo)=>map?.[photo.id]?.version===photo.version;
@@ -50,13 +50,14 @@ const limitations = [
   'AI search and face matches are suggestions and can miss or misidentify photos. Review uncertain groups; naming another group alike combines it.',
   'Refresh finds newly added files. Start indexing analyzes new or changed photos; indexing does not start automatically when files are added.',
   'Gallery media supports JPG, JPEG, PNG, WEBP, GIF, HEIC and HEIF, plus MP4, MOV, M4V, 3GP, AVI and MKV videos. RAW and paired Live Photos are not implemented. AI visual/face search indexes still images, not video frames. Preview and playback depend on pCloud and device codecs.',
-  'Android indexes on the phone. On the Mac, run scripts/mac-index.mjs once and it keeps every photo indexed in pCloud: it resumes by itself after restarts and indexes just the one or two new photos that arrive later. Visual AI inside a browser tab still needs the Mac server awake; background camera backup is not implemented.',
+  'Android indexes on the phone. The Mac indexing agent keeps every photo indexed in pCloud even when the phone is closed: on the Mac, open http://localhost:4173, sign in to pCloud, then open http://localhost:4173/.netlify/functions/mac-index-claim once. The agent starts at login, resumes by itself after restarts and indexes just the one or two new photos that arrive later. Visual AI inside a browser tab still needs the Mac server awake; background camera backup is not implemented.',
   'Safari may clear device downloads or suspend background work. Sleep timers may pause late in the background. There is no supported in-app heart action on iPhone Lock Screen controls.',
   'Full offline reopening on iPhone requires HTTPS. A home network address needs the Mac awake and reachable; HTTPS alone does not move the server off your Mac.',
   'App records sync immediately when possible and poll every 15 seconds while visible. Offline or denied writes stay pending; keep device data until saving succeeds.',
   'Large record histories still need compaction and optimization. Sync currently accepts at most 90,000 known records.',
 ];
 export const RELEASES = [
+    {version:'1.28.4',date:'17 October 2026',time:'12:25',title:'pCloud-only photos, self-healing indexing and a Mac indexing agent',changes:['The Photos screen is pCloud only now: the pCloud / This phone source buttons and the on-phone photo browser are removed — the library always shows your pCloud photos, with the AI badge kept for index status.','Indexing no longer gets stuck at one photo: if pCloud cannot read a single file, the phone skips it, keeps analyzing the rest and saves each result to pCloud; skipped photos retry automatically on the next pass. Coverage keeps climbing toward the full library instead of stopping early.','Low-battery pause now resumes by itself once the phone is charging — no need to start indexing again by hand.','New Mac indexing agent: two background services keep the Sai Photos server and Mac AI indexing running whenever the Mac is awake; they start at login and restart themselves. One-time setup: on the Mac open http://localhost:4173, sign in to pCloud, then open http://localhost:4173/.netlify/functions/mac-index-claim once. Everything it indexes saves to pCloud and appears on the phone.','The web app now listens on your home Wi-Fi too, so any device on the same network can open Sai Photos at http://your-mac-address:4173 — handy for enabling Mac indexing.','Performance and regression pass: the full unit, contract, Android and end-to-end check suites were re-run for this build; no performance regressions found.']},
     {version:'1.28.3',date:'17 October 2026',time:'10:40',title:'Real assistant answers, voice input, smarter People and indexing',changes:['The assistant is a real assistant now: greetings like “hi” get a friendly reply, and everyday questions such as “what is the capital of France” are answered through Cloud-enhanced answers when your free key is on — with a clear invitation to switch it on when it is off.',
   'New microphone button beside Ask: dictate your question instead of typing. The phone asks for microphone permission the first time, and the words land in the ask bar ready to send.',
   'People names merge cleanly: giving a second face group the same name as an existing person joins that group in one step. Existing names are suggested while you type and a toast confirms the merge — covered by a new test.',

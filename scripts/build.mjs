@@ -4,7 +4,7 @@ import { resolve, join, dirname } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-export const assets = ['index.html', 'styles.css', 'app.js', 'ui-boot.js', 'device-photos.mjs', 'sw.js', 'manifest.webmanifest', 'icon.svg', 'settings.mjs', 'smart-features.mjs', 'photo-tools.mjs', 'favorite-queue.mjs', 'photo-cleanup.mjs', 'photo-editor.mjs', 'cloud-sync.mjs', 'photo-state.mjs', 'photo-ai.mjs', 'photo-cache.mjs', 'photo-library.mjs', 'music-player.mjs', 'music-state.mjs', 'gallery-controls.mjs', 'ai-providers.mjs', 'assistant.mjs', 'fonts/inter-vf.woff2', 'fonts/outfit-vf.woff2'];
+export const assets = ['index.html', 'styles.css', 'app.js', 'ui-boot.js', 'sw.js', 'manifest.webmanifest', 'icon.svg', 'settings.mjs', 'smart-features.mjs', 'photo-tools.mjs', 'favorite-queue.mjs', 'photo-cleanup.mjs', 'photo-editor.mjs', 'cloud-sync.mjs', 'photo-state.mjs', 'photo-ai.mjs', 'photo-cache.mjs', 'photo-library.mjs', 'music-player.mjs', 'music-state.mjs', 'gallery-controls.mjs', 'ai-providers.mjs', 'assistant.mjs', 'fonts/inter-vf.woff2', 'fonts/outfit-vf.woff2'];
 async function scriptsIn(folder) {
   const entries = await readdir(folder, { withFileTypes: true });
   const lists = await Promise.all(entries.map(entry => entry.isDirectory()

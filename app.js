@@ -48,7 +48,6 @@ import { setupEnteGallery,activeDeletedPhotoIds,suggestAlbums } from './smart-fe
 import { MusicPlayer } from './music-player.mjs';
 import { normalizeSleepMinutes } from './music-state.mjs';
 import { PhotoLibrary } from './photo-library.mjs';
-import { setupDeviceSource } from './device-photos.mjs';
 window.SAI_RUNNING_VERSION=APP_VERSION;
 const $ = id => document.getElementById(id);
 const base = '/.netlify/functions/';
@@ -103,9 +102,8 @@ navAi.onclick=()=>{gallerySelection.mode=false;gallerySelection.selected.clear()
 $('selectPhotos').onclick=()=>gallerySelection.toggle();$('selectLoadedPhotos').onclick=()=>gallerySelection.selectLoaded();$('clearSelectedPhotos').onclick=()=>gallerySelection.clear();$('deleteSelectedPhotos').onclick=async()=>{gallerySelection.busy=true;gallerySelection.refresh();try{await photoLibrary.cleanup.deleteSelection();}finally{gallerySelection.busy=false;gallerySelection.refresh();}};
 function toast(message){let el=document.getElementById('saiToast');if(!el){el=document.createElement('div');el.id='saiToast';document.body.append(el);}el.textContent=message;el.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.remove('show'),4200);}
 window.addEventListener('sai-mirror-cleared',()=>{try{for(const url of musicPlayer.cachedURLs?.values?.()||[])URL.revokeObjectURL(url);musicPlayer.cachedURLs?.clear?.();musicPlayer.downloads?.clear?.();}catch{}render();});
-const deviceSource=setupDeviceSource({api,toast});if(window.SAI_ANDROID&&sourceMode()==='device'){document.body.classList.add('device-source');deviceSource.show();}
 if(new URLSearchParams(location.search).get('recovered')==='1')toast('The app recovered from a startup problem and reset only the local cache. Your login and everything in pCloud are untouched; previews and downloads rebuild automatically.');
-updateSourceRow();
+updateAiStatusPill();
 async function bulkTransfer(action){const ids=[...gallerySelection.selected];if(!ids.length)return;const target=await openTransferPicker(action);if(!target)return;const account=photoLibrary.account;const photos=state.photo.filter(photo=>ids.includes(photo.id));if(!photos.length)return;let done=0,failed=0;const movedIds=[];gallerySelection.busy=true;gallerySelection.refresh();try{for(let offset=0;offset<photos.length;offset+=25){if(photoLibrary.account!==account)return;toast(`${action==='move'?'Moving':'Copying'} ${offset+1}–${Math.min(offset+25,photos.length)} of ${photos.length}…`);const result=await api('photos-transfer',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({confirmed:true,action,targetFolderId:target.id,items:photos.slice(offset,offset+25).map(photo=>({id:photo.id,fileName:photo.fileName}))})});const rows=result.results||[];for(const row of rows){if(row.error){failed++;continue;}done++;if(action==='move'&&row.moved){movedIds.push(row.id);photoLibrary.onDelete(row.id);}}}if(movedIds.length)photoLibrary.render();toast(`${action==='move'?'Moved':'Copied'} ${done} photo${done===1?'':'s'} to ${target.name}${failed?' · '+failed+' failed':''}.`);}catch(error){toast(`${action==='move'?'Move':'Copy'} could not finish: ${error.message||'check your connection and retry'}`);}finally{gallerySelection.busy=false;gallerySelection.refresh();}}
 if($('copySelectedPhotos'))$('copySelectedPhotos').onclick=()=>bulkTransfer('copy');
 if($('moveSelectedPhotos'))$('moveSelectedPhotos').onclick=()=>bulkTransfer('move');
@@ -222,18 +220,6 @@ let folderKind = 'audio';
 let folderTrail = [];
 let folderGeneration = 0;
 let transferResolver = null;
-function sourceMode() { try { const value = localStorage.getItem('sai-source'); return value === 'device' ? value : 'pcloud'; } catch { return 'pcloud'; } }
-function updateSourceRow() {
-  const row = $('photoSources'); if (!row) return;
-  const mode = sourceMode(); const android = Boolean(window.SAI_ANDROID);
-  row.hidden = !android;
-  $('sourceDevice').hidden = !android;
-  $('sourcePcloud').classList.toggle('active', mode !== 'device');
-  $('sourceDevice').classList.toggle('active', mode === 'device');
-  $('sourcePcloud').textContent = 'pCloud';
-  $('sourceDevice').textContent = 'This phone';
-  updateAiStatusPill();
-}
 function updateAiStatusPill() {
   const pill = $('aiStatusPill'); if (!pill) return;
   const total = state.photo.length; const indexed = Object.keys(photoLibrary.meta.indexes).length; const visuals = Object.keys(photoLibrary.meta.visuals).length;
@@ -242,20 +228,6 @@ function updateAiStatusPill() {
   pill.hidden = false;
   pill.textContent = running ? 'AI indexing… ' + indexed + '/' + total : 'AI ' + indexed + '/' + total + ' indexed' + (visuals ? ' · ' + visuals + ' image search' : '');
   pill.title = 'Indexed ' + indexed + ' of ' + total + ' photos' + (visuals ? ' · ' + visuals + ' with AI image search' : '') + '. Tap for details in the AI tab.';
-}
-async function switchSource(mode) {
-  try { localStorage.setItem('sai-source', mode); } catch {}
-  if (mode === 'device') {
-    if (gallerySelection.mode) { gallerySelection.mode = false; gallerySelection.refresh(); }
-    document.body.classList.add('device-source'); updateSourceRow(); deviceSource.show();
-    toast('Source: photos on this phone');
-    return;
-  }
-  document.body.classList.remove('device-source'); deviceSource.hide();
-  folderKind = 'photo';
-  await selectFolder(restoreFolder('photo'));
-  updateSourceRow();
-  toast('Source: pCloud');
 }
 function openFolderPicker(kind) {
   folderKind = kind;
@@ -277,8 +249,6 @@ function openTransferPicker(action) {
 }
 $('chooseMusicFolder').onclick = () => openFolderPicker('audio');
 $('choosePhotoFolder').onclick = () => openFolderPicker('photo');
-$('sourcePcloud').onclick = () => switchSource('pcloud');
-$('sourceDevice').onclick = () => switchSource('device');
 $('indexAllPhotos').onclick = async () => {
   if (!state.connected || photoLibrary.indexing || photoLibrary.scopeLoading) return;
   $('indexAllPhotos').disabled = true;
@@ -435,7 +405,7 @@ async function checkConnection() {
     state.connected = status.connected;
     authCanonicalOrigin = status.canonicalOrigin || null;
     accountId = status.accountId;
-    if (state.connected) { try { localStorage.setItem('sai-last-account',accountId); } catch {} musicFolder=restoreFolder('audio'); photoFolder=restoreFolder('photo'); updateSourceRow(); if(window.SAI_PHOTOS_ONLY&&!photoFolder)photoFolder={id:'0',name:'All pCloud folders'}; await photoLibrary.connect(accountId); for(const [type,field] of [['music-folder','musicFolder'],['photo-folder','photoFolder']]) { if(photoLibrary.data.operations.some(op=>op.type===type)) { if(field==='musicFolder')musicFolder=photoLibrary.meta[field];else photoFolder=photoLibrary.meta[field]; } else { const folder=field==='musicFolder'?musicFolder:photoFolder; if(folder&&!photoLibrary.restoring)photoLibrary.change({type,folder}); } } updateFolderLabels(); }
+    if (state.connected) { try { localStorage.setItem('sai-last-account',accountId); } catch {} musicFolder=restoreFolder('audio'); photoFolder=restoreFolder('photo'); updateAiStatusPill(); if(window.SAI_PHOTOS_ONLY&&!photoFolder)photoFolder={id:'0',name:'All pCloud folders'}; await photoLibrary.connect(accountId); for(const [type,field] of [['music-folder','musicFolder'],['photo-folder','photoFolder']]) { if(photoLibrary.data.operations.some(op=>op.type===type)) { if(field==='musicFolder')musicFolder=photoLibrary.meta[field];else photoFolder=photoLibrary.meta[field]; } else { const folder=field==='musicFolder'?musicFolder:photoFolder; if(folder&&!photoLibrary.restoring)photoLibrary.change({type,folder}); } } updateFolderLabels(); }
     $('chooseMusicFolder').disabled = !state.connected; $('choosePhotoFolder').disabled = !state.connected;
     $('connect').hidden = state.connected; $('disconnect').hidden = !state.connected;
     $('connect').disabled = window.SAI_PHOTOS_ONLY?!status.tokenConfigured:!status.configured; $('connectToken').disabled = !status.tokenConfigured; $('connectToken').textContent = state.connected ? 'Change token' : 'Connect with token';
@@ -559,4 +529,4 @@ setInterval(()=>{
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&state.connected)loadLibrary();});
 const autoIndexKick=async()=>{try{if(document.visibilityState!=='visible')return;await photoLibrary.autoResumeIndex();}catch{}};
 setTimeout(autoIndexKick,12000);setInterval(autoIndexKick,600000);
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){setTimeout(autoIndexKick,5000);if(document.body.classList.contains('device-source'))deviceSource.reload();}});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')setTimeout(autoIndexKick,5000);});

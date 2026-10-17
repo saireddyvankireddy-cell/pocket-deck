@@ -1,16 +1,21 @@
 import process from 'node:process';
+import fs from 'node:fs';
 import {VISUAL_MODEL} from '../photo-tools.mjs';
 
-const site = (process.env.SAI_SITE_URL || '').replace(/\/+$/, '');
-const rawCookie = process.env.SAI_SESSION_COOKIE || '';
+const site = (process.env.SAI_SITE_URL || 'http://localhost:4173').replace(/\/+$/, '');
+const rawCookie = (process.env.SAI_SESSION_COOKIE || '').trim() || (() => {
+  const file = (process.env.SAI_SESSION_COOKIE_FILE || '').trim();
+  if (!file) return '';
+  try { return fs.readFileSync(file, 'utf8').trim(); } catch { return ''; }
+})();
 const sleepMs = Math.max(60000, Number(process.env.SAI_INDEX_SLEEP_MS || 300000));
 const once = process.env.SAI_INDEX_ONCE === '1';
 const stamp = () => new Date().toISOString().replace('T', ' ').slice(0, 19);
 const log = (...parts) => console.log('[' + stamp() + ']', ...parts);
 
-if (!site || !rawCookie) {
-  console.error('Set SAI_SITE_URL (for example http://localhost:8888) and SAI_SESSION_COOKIE.');
-  console.error('In your signed-in browser: DevTools -> Application -> Cookies -> copy the sai_photos_session value.');
+if (!rawCookie) {
+  console.error('No Mac browser session saved yet. Sign in to pCloud at ' + site + ' in the Mac browser,');
+  console.error('then open this page once: ' + site + '/.netlify/functions/mac-index-claim');
   process.exit(2);
 }
 const cookie = rawCookie.includes('=') ? rawCookie : 'sai_photos_session=' + rawCookie;

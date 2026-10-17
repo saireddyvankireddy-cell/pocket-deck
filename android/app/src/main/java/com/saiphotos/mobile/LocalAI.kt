@@ -52,7 +52,7 @@ class LocalAI(private val api:PCloudApi) {
             val known=PCloudApi.objects(body.getJSONArray("known")).associate{it.getString("id") to it.getString("version")}
             job.known.putAll(known);val pending=photos.filter{!MediaRules.sameFileVersion(known[it.getString("id")]?:"",it.getString("version"))};job.total=pending.size;job.alreadyIndexed=photos.size-pending.size
             var prefetchId:String?=null;var prefetchBytes:Future<ByteArray>?=null
-            for(i in pending.indices){val photo=pending[i];if(!active())break;if(api.batteryLow()){job.message="Paused to protect battery: charge the phone, then start indexing again. Saved results are kept.";job.stop=true;break};if(MediaRules.sameFileVersion(job.known[photo.getString("id")]?:"",photo.getString("version"))){job.alreadyIndexed++;job.total--;continue};job.currentPhoto=photo.getString("id");job.updatedAt=System.currentTimeMillis();job.phase=if(music)"Indexing song titles on this phone" else "Indexing visual search on this phone"
+            for(i in pending.indices){val photo=pending[i];if(!active())break;if(api.batteryLow()){job.message="Paused to protect battery: connect a charger — indexing resumes by itself. Saved results are kept.";job.stop=true;break};if(MediaRules.sameFileVersion(job.known[photo.getString("id")]?:"",photo.getString("version"))){job.alreadyIndexed++;job.total--;continue};job.currentPhoto=photo.getString("id");job.updatedAt=System.currentTimeMillis();job.phase=if(music)"Indexing song titles on this phone" else "Indexing visual search on this phone"
                 try{
                     val stat=api.call("stat",mapOf("fileid" to photo.getString("id").removePrefix("pc-"))).getJSONObject("metadata")
                     if(!MediaRules.sameFileVersion(stat.optString("hash",stat.optString("modified")),photo.getString("version"))){job.changed++;continue}
@@ -69,13 +69,15 @@ class LocalAI(private val api:PCloudApi) {
                         try{synchronized(engine){engine.visual(bitmap,photo)}.put("type","visual-index").put("photoId",photo.getString("id")).put("version",photo.getString("version"))}finally{bitmap.recycle()}
                     }
                     if(!active())break;job.phase="Saving result in pCloud";job.updatedAt=System.currentTimeMillis();save(operation,identity);job.completed++;job.known[photo.getString("id")]=photo.getString("version");job.updatedAt=System.currentTimeMillis()
-                }catch(e:CloudError){job.failed++;throw e}catch(_:OutOfMemoryError){job.failed++;job.stop=true;job.message="Memory limit reached. Saved indexes are retained; reopen and index a smaller folder.";break}catch(_:Exception){job.failed++;job.message="Some photos could not be analyzed. Start indexing again to retry incomplete photos."}
+                }catch(e:CloudError){job.failed++;if(e.status==401){job.stop=true;throw e};job.message="Skipped a photo pCloud could not read"+(e.code?.let{" (code $it)"}?:"")+"; indexing continues and retries it later.";job.updatedAt=System.currentTimeMillis()}catch(_:OutOfMemoryError){job.failed++;job.stop=true;job.message="Memory limit reached. Saved indexes are retained; reopen and index a smaller folder.";break}catch(_:Exception){job.failed++;job.message="Some photos could not be analyzed; they retry automatically on the next pass."}
             }
             if(!music&&active()){job.phase="Checking exact duplicates";val checked=PCloudApi.objects(body.optJSONArray("checksums")).associate{it.getString("id") to it.getString("version")}
                 job.checksums.putAll(checked);val candidates=allMedia.filter{it.optString("contentHash").isNotEmpty()}.groupBy{it.getString("contentHash")+":"+it.getLong("size")}.values.filter{it.size>1}.flatten()
                 job.checksumTotal=candidates.size
                 for(photo in candidates){if(!active())break;if(MediaRules.sameFileVersion(job.checksums[photo.getString("id")]?:"",photo.getString("version"))){job.checksumCompleted++;continue};job.currentPhoto=photo.getString("id");job.updatedAt=System.currentTimeMillis();job.phase="Checking exact duplicates ${job.checksumCompleted+1} / ${job.checksumTotal}"
-                    val sum=api.call("checksumfile",mapOf("fileid" to photo.getString("id").removePrefix("pc-")));val current=sum.optJSONObject("metadata")
+                    val sum=try{api.call("checksumfile",mapOf("fileid" to photo.getString("id").removePrefix("pc-")))}catch(e:CloudError){if(e.status==401)throw e;job.failed++;job.checksumCompleted++;job.updatedAt=System.currentTimeMillis();null}
+                    if(sum==null)continue
+                    val current=sum.optJSONObject("metadata")
                     if(current!=null&&!MediaRules.sameFileVersion(current.optString("hash",current.optString("modified")),photo.getString("version")))continue
                     if(Regex("[a-fA-F0-9]{40}").matches(sum.optString("sha1"))){save(JSONObject().put("type","content-index").put("photoId",photo.getString("id")).put("version",photo.getString("version")).put("sha1",sum.getString("sha1").lowercase()),identity);job.checksums[photo.getString("id")]=photo.getString("version")};job.checksumCompleted++;job.updatedAt=System.currentTimeMillis()
                 }
