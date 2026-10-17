@@ -105,3 +105,26 @@ Harness setup after a release: `adb install -r ~/Downloads/Sai-Photos-Android-<v
 - Git remotes: `origin` → `saireddyvankireddy-cell/pocket-deck`, `saisource` → `vankireddysai-source/SaiPhotos`, branch `main`. Commit style `v<ver>: …`; push both.
 - pCloud backups (written by the release script): `Sai Photos Ente/Android App/Releases/v<ver>-<ISO>` (APK) and `.../Build Code/v<ver>-<ISO>` (source). Preserve older snapshots.
 - Never commit `.env`, credentials, session cookies, personal media, `.ai-cache`, `node_modules`, or the signing key.
+
+## 10. Paused: backup + "own storage" plan (decided 17 October 2026)
+
+Sai Photos development is **on hold**. This section records the storage/backup decisions so they are not lost.
+
+**Decision / plan**
+- User already has Google **5 TB** for ~1.5 more years and is willing to buy a **pCloud 2 TB lifetime** plan. Existing pCloud plan in use.
+- **Next backup step (later, ~1 week out, user to confirm):** clone pCloud → Google Drive. User will first delete duplicates in pCloud, then report the total size. Tool: **rclone** (`brew install rclone`), two remotes (`pcloud:`, `gdrive:`) configured with the user's own browser sign-in. Use `rclone copy` (never destructive `sync`) with `--transfers 16 --checkers 16 --fast-list --progress`, log to `~/Library/Logs/sai-gdrive-backup.log`; optionally schedule daily via launchd.
+- Speed: cannot exceed provider limits — the real cap is **Google Drive's ~750 GB/day upload limit** plus home upload bandwidth, so a multi-TB library takes several days. Parallel transfers help; rclone resumes and verifies checksums.
+- 3-2-1: pCloud (primary) + Google Drive (mirror) + an external HDD copy.
+
+**"Own storage" options researched (2026 prices, approximate)**
+- Object storage (S3-compatible, pay-as-you-go — "pay for what you use"):
+  - Backblaze B2 — **$6.95/TB/mo**, 10 GB free, egress free up to 3× stored then $0.01/GB.
+  - Cloudflare R2 — **$0.015/GB/mo ($15/TB)**, **$0 egress**, request fees only, 10 GB free.
+  - Wasabi — $7.99/TB/mo, no egress fee (fair-use ratio), 1 TB + 90-day minimums.
+  - Hetzner Object Storage — ~€6.49/mo incl. 1 TB. Hetzner Storage Box — €3.20/mo for 1 TB (SFTP/rsync/WebDAV).
+  - AWS S3 — **$0.023/GB/mo** + **$0.09/GB egress** (expensive; avoid for a photo app). Azure/GCS similar.
+- Lifetime plans (one-time payment): pCloud 500 GB $199 / 2 TB $399–499 / 10 TB $1190–1499; Icedrive, Koofr, Internxt similar but smaller companies (riskier). No mainstream provider other than these offers true "forever".
+- Self-hosted: NAS/mini-PC + HDD + Nextcloud/MinIO — one-time hardware, you maintain it.
+
+**Key concept recorded:** a "bucket" is raw object storage with an API — it is **not** an app like pCloud (no gallery UI, no sync client). pCloud = storage + apps; a bucket = storage only, used via rclone/Cyberduck/the provider console, or an app you build. To make Sai Photos read from a bucket we must add an **S3/WebDAV storage adapter** (backend today is pCloud-only), and optionally host the backend on a server (Cloudflare Workers / small VPS / Lambda) so it is always-on. That work is **not started** and stays on hold.
+
