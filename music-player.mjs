@@ -232,7 +232,7 @@ export class MusicPlayer {
     $('nowPlaying').textContent=item.name;$('musicPlaybackStatus').textContent='Loading…';this.switching=false;this.renderApp();
     if('mediaSession'in navigator&&'MediaMetadata'in window)try{navigator.mediaSession.metadata=new MediaMetadata({title:item.name,artist:'Sai Photos · pCloud'});}catch{}
     try{await audio.play();}catch{if(generation===this.generation)$('musicPlaybackStatus').textContent='Tap Play to start playback.';}
-    const wantsOffline=String(localStorage.getItem('sai-cache-songs')??'on')!=='off';
+    const wantsOffline=String(localStorage.getItem('sai-cache-songs')??'off')==='on';
     if(wantsOffline&&!this.cachedURLs.has(this.cacheKey(item))&&this.downloads.get(item.id)?.version!==item.version&&Number(item.size||0)<=104857600)void this.cachePlayed(item,account);
     this.playerUI();
   }
