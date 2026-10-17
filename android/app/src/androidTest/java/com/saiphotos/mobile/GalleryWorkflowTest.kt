@@ -19,6 +19,9 @@ class GalleryWorkflowTest {
    for(i in 0..70){if(eval("document.querySelectorAll('#photoGrid [data-photo-id]').length")=="3")break;Thread.sleep(100)}
    assertEquals("Mock library must load","3",eval("document.querySelectorAll('#photoGrid [data-photo-id]').length"))
    assertEquals("Navigation labels must remain visible and accessible","true",eval("[['Library','Library'],['Albums','Albums'],['Music','Music'],['Search','Search'],['AI assistant','AI']].every(([aria,text])=>[...document.querySelectorAll('#photoNavigation button:not([hidden])')].some(b=>b.getAttribute('aria-label')===aria&&b.textContent===text&&getComputedStyle(b.querySelector('span')).display!=='none'))"))
+   assertEquals("Bottom bar shows exactly five tabs and no heart tab","true",eval("[...document.querySelectorAll('#photoNavigation button')].filter(b=>!b.hidden).length===5&&!document.getElementById('navFavorites')"))
+   assertEquals("AI ask bar sits at the top of the AI screen","true",eval("document.getElementById('aiPanel').firstElementChild&&document.getElementById('aiPanel').firstElementChild.id==='aiAskForm'"))
+   assertEquals("Now-playing card lives inside the Music tab","true",eval("document.getElementById('musicPanel').contains(document.getElementById('miniPlayer'))&&getComputedStyle(document.getElementById('miniPlayer')).position!=='fixed'"))
    eval("document.getElementById('navSearch').click();")
    assertEquals("Search navigation opens discovery","Search",eval("document.getElementById('galleryPageTitle').textContent").trim('"'))
    eval("document.getElementById('navPhotos').click();")

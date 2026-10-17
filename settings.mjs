@@ -1,7 +1,7 @@
 import {photoCacheInfo,clearMirror} from './photo-cache.mjs';
 import {sharedIndexProgress,sharedIndexLabel,formatSize} from './photo-tools.mjs';
 import {PROVIDERS,providerById,fetchModels,pickModel,chat,keyStorageId,cleanKey} from './ai-providers.mjs';
-export const APP_VERSION = '1.28.1';
+export const APP_VERSION = '1.28.2';
 export function indexCoverage(library) {
   const photos=library.photos().filter(photo=>photo.mediaType!=='video');
   const current=(map,photo)=>map?.[photo.id]?.version===photo.version;
@@ -57,6 +57,9 @@ const limitations = [
   'Large record histories still need compaction and optimization. Sync currently accepts at most 90,000 known records.',
 ];
 export const RELEASES = [
+  {version:'1.28.2',date:'17 October 2026',time:'09:58',title:'Spotify-style now-playing card and lighter typography',changes:['The now-playing card at the top of the Music tab now matches the dark Spotify-style music screen — same surface, green accents and progress line — with artwork, the song name and previous / play / next / queue. Tap it for the full-screen player.',
+  'Lighter text everywhere: headings cap at a lighter weight and buttons and labels drop one step, so the Outfit font reads calm and clean instead of heavy.',
+  'Automated checks now cover the five-tab bar, the no-heart layout, the ask bar at the top of the AI screen and the now-playing card inside the Music tab — on every build, so these layouts cannot silently regress.']},
   {version:'1.28.1',date:'17 October 2026',time:'09:37',title:'Outfit everywhere, five clean tabs and a Spotify-style music tab',changes:['The whole app now uses the Outfit font — the rounded modern face that already styled the headings now styles every screen, matching the orange brand.',
   'The bottom bar is down to five: Library, Albums, Music, Search and AI. Favourites is still one tap away — the ♡ Favorites section inside Library and the menu.',
   'The Music tab now works like Spotify: when a song is playing, a now-playing card sits at the top of the Music tab with artwork, the song name, previous / play / next / queue and a live progress line. Tap the card for the full-screen player. The floating bar that used to sit across the top of the other screens is gone.',
