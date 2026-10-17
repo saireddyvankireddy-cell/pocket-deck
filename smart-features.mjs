@@ -61,6 +61,21 @@ export function suggestAlbums(photos,meta,people,now=new Date(),limit=8){
  const skipTerms=new Set(['this','that','with','from','photo','image','screenshot','whatsapp','samsung','telugu','india','your']);
  const terms=[...termDocs.entries()].filter(([word,count])=>count>=10&&!personWords.has(word)&&!skipTerms.has(word)).sort((a,b)=>b[1]-a[1]).slice(0,3);
  for(const [word,count] of terms)add('Tag · '+word,word,'term',count);
+ let recapYears=0;
+ for(let offset=0;offset<5&&recapYears<2;offset++){
+  const year=now.getFullYear()-offset;
+  const count=photos.filter(photo=>{const date=new Date(Number(photo.addedAt)||0);return date.getFullYear()===year;}).length;
+  if(count>=25){add('Recap · '+year,'year:'+year,'year',count);recapYears+=1;}
+ }
+ const favouriteYears=new Map();
+ for(const photo of photos){
+  if(!meta.favorites?.[photo.id])continue;
+  const year=new Date(Number(photo.addedAt)||0).getFullYear();
+  if(!year)continue;
+  favouriteYears.set(year,(favouriteYears.get(year)||0)+1);
+ }
+ const topFavouriteYear=[...favouriteYears.entries()].sort((a,b)=>b[1]-a[1])[0];
+ if(topFavouriteYear&&topFavouriteYear[1]>=10)add('♥ '+topFavouriteYear[0]+' favourites','favorites year:'+topFavouriteYear[0],'favorites-year',topFavouriteYear[1]);
  return suggestions;
 }
 const stop=new Set(['song','songs','music','full','video','lyrics','official','audio','telugu','mp3','m4a','wav','the','and','with']);

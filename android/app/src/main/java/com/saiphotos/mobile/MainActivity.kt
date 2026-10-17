@@ -20,6 +20,7 @@ class MainActivity:Activity() {
     private var uploadFolder:String?=null
     private var uploadOwner=""
     private var eraser:EraseEngine?=null
+    private var speechRecognizer:android.speech.SpeechRecognizer?=null
 
     private var lockPending=false
     private var lockReply:String?=null
@@ -79,7 +80,7 @@ class MainActivity:Activity() {
         web.setPadding(0,0,0,0)
         web.setOnApplyWindowInsetsListener { view,insets -> view.setPadding(insets.systemWindowInsetLeft,insets.systemWindowInsetTop,insets.systemWindowInsetRight,insets.systemWindowInsetBottom);insets }
         setContentView(web)
-        web.settings.apply { javaScriptEnabled=true;domStorageEnabled=true;allowFileAccess=false;allowContentAccess=false;setAllowFileAccessFromFileURLs(false);setAllowUniversalAccessFromFileURLs(false);mixedContentMode=WebSettings.MIXED_CONTENT_NEVER_ALLOW;mediaPlaybackRequiresUserGesture=false;userAgentString += " SaiPhotosAndroid/1.28.2" }
+        web.settings.apply { javaScriptEnabled=true;domStorageEnabled=true;allowFileAccess=false;allowContentAccess=false;setAllowFileAccessFromFileURLs(false);setAllowUniversalAccessFromFileURLs(false);mixedContentMode=WebSettings.MIXED_CONTENT_NEVER_ALLOW;mediaPlaybackRequiresUserGesture=false;userAgentString += " SaiPhotosAndroid/1.28.3" }
         web.addJavascriptInterface(Bridge(),"SaiNative")
         web.webChromeClient=object:WebChromeClient(){override fun onConsoleMessage(message:ConsoleMessage):Boolean { if(message.messageLevel()==ConsoleMessage.MessageLevel.ERROR)android.util.Log.w("SaiPhotosUI",message.message().take(500));return true }}
         web.webViewClient=object:WebViewClient() {
@@ -191,6 +192,37 @@ class MainActivity:Activity() {
             if(Uri.parse(path).path=="/.netlify/functions/device-battery"){
                 if(method!="GET"){runOnUiThread{reply(id,405,JSONObject().put("error","Method not allowed."))};return}
                 runOnUiThread{reply(id,200,JSONObject().put("low",api.batteryLow()).put("charging",api.batteryCharging()))}
+                return
+            }
+            if(Uri.parse(path).path=="/.netlify/functions/device-speech"){
+                if(method!="GET"&&method!="POST"){runOnUiThread{reply(id,405,JSONObject().put("error","Method not allowed."))};return}
+                runOnUiThread{
+                    if(method=="GET"){reply(id,200,JSONObject().put("available",android.speech.SpeechRecognizer.isRecognitionAvailable(this@MainActivity)));return@runOnUiThread}
+                    if(speechRecognizer!=null){reply(id,409,JSONObject().put("error","Voice input is already listening. Wait a moment and try again."));return@runOnUiThread}
+                    if(checkSelfPermission(android.Manifest.permission.RECORD_AUDIO)!=android.content.pm.PackageManager.PERMISSION_GRANTED){if(!isFinishing)requestPermissions(arrayOf(android.Manifest.permission.RECORD_AUDIO),24);reply(id,200,JSONObject().put("pendingPermission",true));return@runOnUiThread}
+                    if(!android.speech.SpeechRecognizer.isRecognitionAvailable(this@MainActivity)){reply(id,200,JSONObject().put("error","Voice input is not available on this phone. Enable a speech service in Android settings."));return@runOnUiThread}
+                    try{
+                        val recognizer=android.speech.SpeechRecognizer.createSpeechRecognizer(this@MainActivity)
+                        speechRecognizer=recognizer
+                        val done=java.util.concurrent.atomic.AtomicBoolean(false)
+                        val timeout=android.os.Handler(android.os.Looper.getMainLooper())
+                        fun finish(data:JSONObject){if(!done.compareAndSet(false,true))return;timeout.removeCallbacksAndMessages(null);speechRecognizer=null;try{recognizer.destroy()}catch(_:Exception){}reply(id,200,data)}
+                        recognizer.setRecognitionListener(object:android.speech.RecognitionListener{
+                            override fun onResults(results:android.os.Bundle){val text=results.getStringArrayList(android.speech.SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.trim()?:"";finish(if(text.isEmpty())JSONObject().put("error","I could not hear anything. Try again.")else JSONObject().put("text",text))}
+                            override fun onError(error:Int){val message=when(error){android.speech.SpeechRecognizer.ERROR_NO_MATCH,android.speech.SpeechRecognizer.ERROR_SPEECH_TIMEOUT->"I could not hear anything. Try again.";android.speech.SpeechRecognizer.ERROR_PERMISSIONS->"Microphone permission is needed for voice input.";android.speech.SpeechRecognizer.ERROR_NETWORK,android.speech.SpeechRecognizer.ERROR_NETWORK_TIMEOUT->"Voice input needs a network connection.";android.speech.SpeechRecognizer.ERROR_RECOGNIZER_BUSY->"The speech service is busy. Try again in a moment.";else->"Voice input stopped. Try again."};finish(JSONObject().put("error",message))}
+                            override fun onReadyForSpeech(params:android.os.Bundle?){}
+                            override fun onBeginningOfSpeech(){}
+                            override fun onRmsChanged(rmsdB:Float){}
+                            override fun onBufferReceived(buffer:ByteArray?){}
+                            override fun onEndOfSpeech(){}
+                            override fun onPartialResults(partialResults:android.os.Bundle?){}
+                            override fun onEvent(eventType:Int,params:android.os.Bundle?){}
+                        })
+                        val intent=android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL,android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM).putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE,java.util.Locale.getDefault().toString()).putExtra(android.speech.RecognizerIntent.EXTRA_MAX_RESULTS,1)
+                        recognizer.startListening(intent)
+                        timeout.postDelayed({finish(JSONObject().put("error","I could not hear anything. Try again."))},20000)
+                    }catch(_:Exception){speechRecognizer=null;reply(id,500,JSONObject().put("error","Voice input could not start on this phone."))}
+                }
                 return
             }
             if(Uri.parse(path).path=="/.netlify/functions/device-diagnostics"){
@@ -382,5 +414,5 @@ class MainActivity:Activity() {
     private fun jsonResponse(status:Int,data:JSONObject)=WebResourceResponse("application/json","UTF-8",status,if(status==200)"OK" else "Error",mapOf("Cache-Control" to "no-store"),ByteArrayInputStream(data.toString().toByteArray()))
     private fun errorResponse(status:Int,message:String)=jsonResponse(status,JSONObject().put("error",message))
     @Deprecated("Deprecated in Java") override fun onBackPressed(){web.evaluateJavascript("(()=>{const d=[...document.querySelectorAll('dialog[open]')],C=d.at(-1);if(C){if(C.id==='settingsDialog'&&!document.getElementById('settingsBack').hidden)document.getElementById('settingsBack').click();else C.close();return true;}return window.saiGalleryBack?.()||false;})()") { result -> if(result!="true")moveTaskToBack(true) }}
-    override fun onDestroy(){PlaybackBridge.action=null;stopService(android.content.Intent(this,PlaybackService::class.java));eraser?.shutdown();api.ai.shutdown();workers.shutdownNow();web.removeJavascriptInterface("SaiNative");web.destroy();super.onDestroy()}
+    override fun onDestroy(){try{speechRecognizer?.destroy()}catch(_:Exception){};speechRecognizer=null;PlaybackBridge.action=null;stopService(android.content.Intent(this,PlaybackService::class.java));eraser?.shutdown();api.ai.shutdown();workers.shutdownNow();web.removeJavascriptInterface("SaiNative");web.destroy();super.onDestroy()}
 }

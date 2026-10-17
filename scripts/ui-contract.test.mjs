@@ -60,3 +60,62 @@ test('app version strings agree across settings, package and release notes',()=>
   assert.equal(appVersion,pkg.version,'settings APP_VERSION must match package.json');
   assert.equal(releaseVersion,appVersion,'newest release notes version must match APP_VERSION');
 });
+
+test('AI ask bar offers voice input with a native speech bridge',()=>{
+  const html=read('index.html');
+  assert.ok(html.includes('id="aiAskMic"'),'ask bar must include the microphone button');
+  const form=html.indexOf('id="aiAskForm"');
+  const mic=html.indexOf('id="aiAskMic"');
+  const send=html.indexOf('id="aiAskSend"');
+  assert.ok(form>0&&mic>form&&send>mic,'mic button must sit inside the ask form before Ask');
+  const app=read('app.js');
+  assert.ok(app.includes("api('device-speech'"),'app must call the device-speech bridge');
+  const manifest=read('android/app/src/main/AndroidManifest.xml');
+  assert.ok(manifest.includes('android.permission.RECORD_AUDIO'),'RECORD_AUDIO permission must be declared');
+  const activity=read('android/app/src/main/java/com/saiphotos/mobile/MainActivity.kt');
+  assert.ok(activity.includes('/.netlify/functions/device-speech'),'MainActivity must serve device-speech');
+  assert.ok(activity.includes('SpeechRecognizer.createSpeechRecognizer'),'MainActivity must create a SpeechRecognizer');
+});
+
+test('AI header stays a single short line',()=>{
+  const html=read('index.html');
+  const head=html.slice(html.indexOf('class="ai-head"'),html.indexOf('id="aiToolbar"')>0?html.indexOf('id="aiToolbar"'):undefined);
+  const text=head.match(/<p class="settings-muted">([^<]+)<\/p>/);
+  assert.ok(text,'ai-head must keep one description line');
+  assert.ok(text[1].length<=120,'description must stay short enough to fit one line');
+});
+
+test('suggested albums show four at a time and refill after a click',()=>{
+  const app=read('app.js');
+  assert.ok(app.includes('.filter(suggestion=>!dismissed.includes(suggestion.query)).slice(0,4)'),'suggestions must be capped at four');
+  const smart=read('smart-features.mjs');
+  assert.ok(smart.includes("add('Recap · '+year,'year:'+year"),'year recaps must keep the pool refilling');
+  assert.ok(smart.includes("'favorites year:'+topFavouriteYear[0]"),'yearly favourites must keep the pool refilling');
+});
+
+test('greetings and everyday questions get real answers',()=>{
+  const assistant=read('assistant.mjs');
+  assert.ok(assistant.includes("greeting ? 'greeting'"),'greeting intent must be classified');
+  assert.ok(assistant.includes("intent.kind === 'greeting'"),'greeting must have its own reply');
+  assert.ok(assistant.includes("intent.kind === 'general'"),'general questions must have a fallback reply');
+  const app=read('app.js');
+  assert.ok(app.includes("intent.kind==='general'&&cloudReady()"),'general questions must use the cloud model when ready');
+  assert.ok(app.includes("const userContent=general?(intent.raw||intent.terms.join(' ')):factsDigest"),'general questions must send the raw question');
+});
+
+test('indexing no longer jumps away or stalls on deleted files',()=>{
+  const library=read('photo-library.mjs');
+  assert.ok(!library.includes("if(!this.autoResuming)$('settingsDialog').close()"),'starting an index must not close Settings');
+  assert.ok(library.includes("/previous indexing job is stopping/i"),'a stopping previous job must be retried, not shown as an error');
+  const analysis=read('netlify/functions/photo-analysis.mjs');
+  assert.ok(analysis.includes('[2002,2003,2005,2055].includes(error.result)'),'deleted pCloud files must be skipped, not failed forever');
+  assert.ok(analysis.includes('loadPhoto(photo,false)'),'preview fetches must retry once before failing');
+});
+
+test('merged people names show clear feedback and suggest existing names',()=>{
+  const library=read('photo-library.mjs');
+  assert.ok(library.includes("'sai-toast'"),'merging a name must raise a toast');
+  assert.ok(library.includes("id('nameSuggestions')")||library.includes("$('nameSuggestions')"),'person naming must suggest existing names');
+  const html=read('index.html');
+  assert.ok(html.includes('id="nameSuggestions"'),'datalist for existing names must exist');
+});

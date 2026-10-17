@@ -133,6 +133,7 @@ export class PhotoLibrary {
     $('nameDialogTitle').textContent = title; $('nameInput').value = current; $('nameDialog').returnValue = '';
     const contactsButton = $('pickContactName');
     if (contactsButton) contactsButton.hidden = !/person/i.test(title) || !window.SAI_ANDROID;
+    const suggestions=$('nameSuggestions');if(suggestions&&$('nameInput')){suggestions.replaceChildren();if(/person/i.test(title))for(const row of this.people||[])if(row.name){const option=document.createElement('option');option.value=row.name;suggestions.append(option);}}
     const result = new Promise(resolve => {
       const onClose = () => { if (contactsButton) contactsButton.onclick = null; resolve($('nameDialog').returnValue === 'save' ? $('nameInput').value.trim() : null); };
       $('nameDialog').addEventListener('close', onClose, { once: true });
@@ -483,11 +484,13 @@ export class PhotoLibrary {
     const name = await this.askName('Name this person · use an existing name to merge', person.name || '');
     if (!name?.trim() || this.account !== account) return;
     const label = name.normalize('NFKC').trim().replace(/\s+/g, ' ').slice(0, 80);
+    const existing = (this.people||[]).find(row => row.id !== person.id && row.name && normalizePersonName(row.name) === normalizePersonName(label));
     const faces = [...person.faces];
     for (let offset = 0; offset < faces.length; offset += 50000) {
       if(this.account !== account) return;
       await this.change({type:'person-label',faceIds:faces.slice(offset, offset+50000),name:label});
     }
+    if (existing) { try { window.dispatchEvent(new CustomEvent('sai-toast', { detail: { message: 'Merged with “' + existing.name + '” — one group now.' } })); } catch {} }
     this.scheduleNamedMatches();
   }
   scheduleNamedMatches() {
@@ -655,7 +658,7 @@ export class PhotoLibrary {
       if(!await this.sync()||this.account!==account){$('indexStatus').textContent='Indexing paused: saved pCloud records must finish syncing first. '+(this.cloudError||'Check your connection and try again.');return;}
       if(typeof window!=='undefined'&&window.SAI_ANDROID){
         if(!this.autoResuming)$('photoControls').open=true;
-        const mode=$('indexMode')?.value||'visual';if(!this.autoResuming)$('settingsDialog').close();this.stop=false;
+        const mode=$('indexMode')?.value||'visual';this.stop=false;
         if(mode==='faces'){await this.index();return;}
         if(!await this.startVisualIndex())return;
         if(mode==='all'){
@@ -670,7 +673,7 @@ export class PhotoLibrary {
       await this.index();
     }catch(error){$('indexStatus').textContent='Indexing paused: '+error.message;}finally{this.preparingIndex=false;this.sections();}
   }
-  async startVisualIndex(){if(!this.account||this.scopeLoading)return;try{const known=Object.entries(this.meta.visuals).filter(([id,index])=>index.model===VISUAL_MODEL&&!(this.data?.pending||[]).some(op=>op.type==='visual-index'&&op.photoId===id&&op.version===index.version)).map(([id,index])=>({id,version:index.version}));await this.api('photo-analysis',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'start',folderId:this.photoFolder()?.id||null,known,checksums:Object.entries(this.meta.checksums).map(([id,index])=>({id,version:index.version}))})});this.visualProgress();return true;}catch(error){$('visualIndexStatus').textContent=error.message;return false;}}
+  async startVisualIndex(attempt=0){if(!this.account||this.scopeLoading)return;try{const known=Object.entries(this.meta.visuals).filter(([id,index])=>index.model===VISUAL_MODEL&&!(this.data?.pending||[]).some(op=>op.type==='visual-index'&&op.photoId===id&&op.version===index.version)).map(([id,index])=>({id,version:index.version}));await this.api('photo-analysis',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'start',folderId:this.photoFolder()?.id||null,known,checksums:Object.entries(this.meta.checksums).map(([id,index])=>({id,version:index.version}))})});this.visualProgress();return true;}catch(error){if(attempt<1&&/previous indexing job is stopping/i.test(error.message)){$('visualIndexStatus').textContent='Waiting for the previous indexing job to stop…';await new Promise(resolve=>setTimeout(resolve,3000));return this.startVisualIndex(attempt+1);}$('visualIndexStatus').textContent=error.message;return false;}}
   async visualProgress(){
     if(!this.account)return;
     if(this.scopeLoading){$('visualIndexStatus').textContent='Scanning pCloud folders before indexing…';return;}

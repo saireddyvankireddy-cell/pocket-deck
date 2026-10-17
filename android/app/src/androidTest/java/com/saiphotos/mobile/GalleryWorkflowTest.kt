@@ -22,6 +22,11 @@ class GalleryWorkflowTest {
    assertEquals("Bottom bar shows exactly five tabs and no heart tab","true",eval("[...document.querySelectorAll('#photoNavigation button')].filter(b=>!b.hidden).length===5&&!document.getElementById('navFavorites')"))
    assertEquals("AI ask bar sits at the top of the AI screen","true",eval("document.getElementById('aiPanel').firstElementChild&&document.getElementById('aiPanel').firstElementChild.id==='aiAskForm'"))
    assertEquals("Now-playing card lives inside the Music tab","true",eval("document.getElementById('musicPanel').contains(document.getElementById('miniPlayer'))&&getComputedStyle(document.getElementById('miniPlayer')).position!=='fixed'"))
+   assertEquals("AI ask bar offers a microphone button","true",eval("document.getElementById('aiAskForm').contains(document.getElementById('aiAskMic'))"))
+   assertEquals("AI header stays one short line","true",eval("(document.querySelector('.ai-head p')?.textContent||'').length<=120"))
+   assertEquals("Greetings answer like a real assistant","true",eval("(()=>{const input=document.getElementById('aiAskInput');input.value='hi';document.getElementById('aiAskForm').dispatchEvent(new Event('submit',{cancelable:true}));return true})()"))
+   for(i in 0..40){if(eval("(document.querySelector('#aiChatLog .ai-bubble.assistant:last-of-type p')?.textContent||'').startsWith('Hi')")=="true")break;Thread.sleep(100)}
+   assertEquals("Greeting reply starts with a friendly hello","true",eval("(document.querySelector('#aiChatLog .ai-bubble.assistant:last-of-type p')?.textContent||'').startsWith('Hi')"))
    eval("document.getElementById('navSearch').click();")
    assertEquals("Search navigation opens discovery","Search",eval("document.getElementById('galleryPageTitle').textContent").trim('"'))
    eval("document.getElementById('navPhotos').click();")

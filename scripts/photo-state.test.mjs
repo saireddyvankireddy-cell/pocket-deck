@@ -208,3 +208,16 @@ test('people reset clears all names and lock replays on both devices',()=>{
   assert.equal(validOperation({id:id(7),at:7,type:'people-lock',value:'yes'}),false);
   assert.equal(replayOperations([{id:id(8),at:8,type:'people-lock',value:true},{id:id(9),at:9,type:'people-lock',value:false}]).peopleLocked,false);
 });
+
+test('naming two separate face groups the same name merges them into one person', () => {
+  const group=(id,photos,faces)=>({id,photos:new Set(photos),faces:new Set(faces)});
+  const groups=[group('pc-1-face-0',['pc-1'],['pc-1-face-0']),group('pc-2-face-0',['pc-2'],['pc-2-face-0'])];
+  const people=collectPeople(groups,{'pc-1-face-0':'Sai','pc-2-face-0':'  sai '});
+  assert.equal(people.length,1);
+  assert.equal(people[0].id,'person:sai');
+  assert.deepEqual([...people[0].photos].sort(),['pc-1','pc-2']);
+  assert.equal(people[0].faces.size,2);
+  const later=collectPeople(groups,{'pc-1-face-0':'SAI','pc-2-face-0':'sai'},{'pc-2-face-0':2});
+  assert.equal(later.length,1);
+  assert.equal(later[0].name,'SAI');
+});

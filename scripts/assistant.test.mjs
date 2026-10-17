@@ -89,3 +89,30 @@ test('assistant actions parse into sleep, stop, index and album intents', () => 
   assert.match(summarizeAnswer(album,{photos:[],songs:[],albumError:'Connect pCloud first — albums are saved in pCloud.'}).text,/Connect pCloud first/);
   assert.equal(parseQuestion('beach photos').kind,'search');
 });
+
+test('greetings get a friendly assistant reply', () => {
+  for (const phrase of ['hi', 'Hi!', 'Hello', 'hey', 'Good morning', 'namaste']) {
+    const intent = parseQuestion(phrase);
+    assert.equal(intent.kind, 'greeting', phrase);
+    const answer = summarizeAnswer(intent, { photos: [], songs: [] });
+    assert.match(answer.text, /^Hi! I am your Sai Photos assistant/);
+    assert.equal(answer.done, true);
+    assert.equal(intent.terms.length, 0);
+  }
+  assert.equal(parseQuestion('hey there').kind, 'search');
+  assert.equal(parseQuestion('hi how many photos do I have').kind, 'search');
+});
+
+test('everyday questions are routed to the cloud model instead of the library', () => {
+  for (const phrase of ['What is the capital of France?', 'Who won the world cup in 2022?', 'How do I cook rice?', 'Explain gravity', 'Tell me a joke']) {
+    assert.equal(parseQuestion(phrase).kind, 'general', phrase);
+  }
+  assert.notEqual(parseQuestion('how many photos do I have').kind, 'general');
+  assert.equal(parseQuestion('photos of Sai', ['Sai']).kind, 'search');
+  assert.notEqual(parseQuestion('play Kesariya').kind, 'general');
+  assert.notEqual(parseQuestion('stop music in 10 minutes').kind, 'general');
+  assert.notEqual(parseQuestion('create album Beach 2026').kind, 'general');
+  const answer = summarizeAnswer(parseQuestion('What is the capital of France?'), { photos: [], songs: [] });
+  assert.match(answer.text, /Cloud-enhanced answers in Settings → AI/);
+  assert.equal(answer.done, true);
+});

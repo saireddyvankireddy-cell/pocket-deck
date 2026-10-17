@@ -1,7 +1,7 @@
 import {photoCacheInfo,clearMirror} from './photo-cache.mjs';
 import {sharedIndexProgress,sharedIndexLabel,formatSize} from './photo-tools.mjs';
 import {PROVIDERS,providerById,fetchModels,pickModel,chat,keyStorageId,cleanKey} from './ai-providers.mjs';
-export const APP_VERSION = '1.28.2';
+export const APP_VERSION = '1.28.3';
 export function indexCoverage(library) {
   const photos=library.photos().filter(photo=>photo.mediaType!=='video');
   const current=(map,photo)=>map?.[photo.id]?.version===photo.version;
@@ -57,9 +57,11 @@ const limitations = [
   'Large record histories still need compaction and optimization. Sync currently accepts at most 90,000 known records.',
 ];
 export const RELEASES = [
-  {version:'1.28.2',date:'17 October 2026',time:'09:58',title:'Spotify-style now-playing card and lighter typography',changes:['The now-playing card at the top of the Music tab now matches the dark Spotify-style music screen — same surface, green accents and progress line — with artwork, the song name and previous / play / next / queue. Tap it for the full-screen player.',
-  'Lighter text everywhere: headings cap at a lighter weight and buttons and labels drop one step, so the Outfit font reads calm and clean instead of heavy.',
-  'Automated checks now cover the five-tab bar, the no-heart layout, the ask bar at the top of the AI screen and the now-playing card inside the Music tab — on every build, so these layouts cannot silently regress.']},
+    {version:'1.28.3',date:'17 October 2026',time:'10:40',title:'Real assistant answers, voice input, smarter People and indexing',changes:['The assistant is a real assistant now: greetings like “hi” get a friendly reply, and everyday questions such as “what is the capital of France” are answered through Cloud-enhanced answers when your free key is on — with a clear invitation to switch it on when it is off.',
+  'New microphone button beside Ask: dictate your question instead of typing. The phone asks for microphone permission the first time, and the words land in the ask bar ready to send.',
+  'People names merge cleanly: giving a second face group the same name as an existing person joins that group in one step. Existing names are suggested while you type and a toast confirms the merge — covered by a new test.',
+  'Indexing fixes: starting an index no longer jumps you out of Settings to the AI tab, a previous job that is still stopping is retried automatically, deleted pCloud files are skipped instead of failing over and over, and preview downloads retry once before being counted.',
+  'Suggested albums show four at a time and refill with fresh ideas after each click — now including yearly recaps and yearly favourite recaps. Automated checks grew to 104 unit and contract tests plus new on-device checks for the mic button, the one-line AI header, greeting replies and the four-album cap.']},
   {version:'1.28.1',date:'17 October 2026',time:'09:37',title:'Outfit everywhere, five clean tabs and a Spotify-style music tab',changes:['The whole app now uses the Outfit font — the rounded modern face that already styled the headings now styles every screen, matching the orange brand.',
   'The bottom bar is down to five: Library, Albums, Music, Search and AI. Favourites is still one tap away — the ♡ Favorites section inside Library and the menu.',
   'The Music tab now works like Spotify: when a song is playing, a now-playing card sits at the top of the Music tab with artwork, the song name, previous / play / next / queue and a live progress line. Tap the card for the full-screen player. The floating bar that used to sit across the top of the other screens is gone.',

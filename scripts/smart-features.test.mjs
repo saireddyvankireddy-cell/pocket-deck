@@ -42,3 +42,15 @@ test('suggestions combine monthly recaps, person years, favourites and text term
   assert.ok(!second.some(suggestion=>suggestion.name==='Recap · September 2026'));
   assert.ok(second.every(suggestion=>suggestion.count>=8));
 });
+
+test('year recaps and yearly favourite recaps refill the suggestion list', () => {
+  const photos=[];
+  for(let i=0;i<30;i++)photos.push({id:'pc-'+i,fileName:'p'+i+'.jpg',version:'v1',addedAt:Date.UTC(2025,4,10),mediaType:'photo'});
+  const favorites={};for(let i=0;i<12;i++)favorites['pc-'+i]=true;
+  const meta={favorites,indexes:{},albums:{}};
+  const suggestions=suggestAlbums(photos,meta,[],new Date(Date.UTC(2026,9,17)),8);
+  assert.ok(suggestions.some(suggestion=>suggestion.kind==='year'&&suggestion.query==='year:2025'&&suggestion.name==='Recap · 2025'),names(suggestions));
+  assert.ok(suggestions.some(suggestion=>suggestion.kind==='favorites-year'&&suggestion.query==='favorites year:2025'&&suggestion.count===12));
+  assert.ok(suggestions.length>=2);
+  function names(list){return list.map(item=>item.name).join(' | ');}
+});
