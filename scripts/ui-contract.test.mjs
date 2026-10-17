@@ -82,7 +82,8 @@ test('AI header stays a single short line',()=>{
   const head=html.slice(html.indexOf('class="ai-head"'),html.indexOf('id="aiToolbar"')>0?html.indexOf('id="aiToolbar"'):undefined);
   const text=head.match(/<p class="settings-muted">([^<]+)<\/p>/);
   assert.ok(text,'ai-head must keep one description line');
-  assert.ok(text[1].length<=120,'description must stay short enough to fit one line');
+  
+  assert.ok(text[1].length<=60,'description must stay short enough to fit one line');
 });
 
 test('suggested albums show four at a time and refill after a click',()=>{
